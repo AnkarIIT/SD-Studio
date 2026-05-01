@@ -2,10 +2,11 @@ import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-
+import { useSettingsStore } from '../../store/useSettingsStore';
 import StatCounter from '../ui/StatCounter';
 
 const Hero = () => {
+  const { settings } = useSettingsStore();
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
@@ -78,20 +79,27 @@ const Hero = () => {
             <div className="space-y-4 overflow-visible">
               <div className="overflow-visible">
                 <motion.h1 
+                  key={settings.heroTitle}
                   custom={0} initial="hidden" animate="visible" variants={titleVariants}
                   className="text-[11vw] lg:text-9xl font-black leading-[0.85] text-gray-900 tracking-tighter pb-2 whitespace-nowrap lg:whitespace-normal"
                 >
-                  Bring <br className="hidden lg:block" /> 
-                  <span className="text-transparent bg-clip-text bg-linear-to-r from-violet-600 to-pink-500 italic">Magic</span> to Life.
+                  {settings.heroTitle.split(' ').map((word, i) => (
+                    <span key={i}>
+                      {word === 'Magic' || word === 'Life' ? (
+                        <span className="text-transparent bg-clip-text bg-linear-to-r from-violet-600 to-pink-500 italic">{word} </span>
+                      ) : word + ' '}
+                    </span>
+                  ))}
                 </motion.h1>
               </div>
               <motion.p 
+                key={settings.heroSubtitle}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.4 }}
                 className="text-gray-500 text-lg md:text-xl leading-relaxed max-w-lg font-medium"
               >
-                Custom 3D manufacturing with a touch of wonder. We turn your wildest ideas into stunning physical objects.
+                {settings.heroSubtitle}
               </motion.p>
             </div>
           </div>
@@ -121,7 +129,6 @@ const Hero = () => {
           </div>
         </div>
 
-        {/* Playful Floating Dragon */}
         <motion.div 
           style={{ rotateX, rotateY, perspective: 1000 }}
           initial={{ opacity: 0, scale: 0.9, x: 20 }}
@@ -129,7 +136,6 @@ const Hero = () => {
           transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] }}
           className="relative hidden lg:flex justify-end items-center"
         >
-          {/* Decorative Floating Sparkles */}
           <motion.div 
             animate={{ 
               scale: [1, 1.5, 1],
@@ -141,16 +147,7 @@ const Hero = () => {
           >
             <Sparkles size={24} />
           </motion.div>
-          <motion.div 
-            animate={{ 
-              scale: [1, 1.2, 1],
-              opacity: [0.2, 0.5, 0.2]
-            }}
-            transition={{ duration: 3, repeat: Infinity, delay: 1 }}
-            className="absolute bottom-40 right-10 w-3 h-3 bg-pink-300 rounded-full blur-sm"
-          />
-
-          {/* Animated Float Badge */}
+          
           <motion.div 
             animate={{ 
               y: [0, -20, 0],

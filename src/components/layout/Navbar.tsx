@@ -1,13 +1,29 @@
 import { Link } from 'react-router-dom';
 import { Package, ShoppingBag, Sparkles } from 'lucide-react';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { useCartStore } from '../../store/useCartStore';
+import { motion, AnimatePresence } from 'motion/react';
 
 const Navbar = () => {
   const { toggleCart, items } = useCartStore();
+  const { settings } = useSettingsStore();
   const cartItemCount = items.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-24 flex items-center justify-between px-6 md:px-16 pointer-events-auto bg-white/80 backdrop-blur-xl">
+    <>
+      <AnimatePresence>
+        {settings.showBanner && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="fixed top-0 left-0 right-0 z-[60] bg-gray-900 text-white py-3 px-6 text-center"
+          >
+            <p className="text-[10px] font-black uppercase tracking-[0.4em]">{settings.noticeBanner}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <nav className={`fixed left-0 right-0 z-50 h-24 flex items-center justify-between px-6 md:px-16 pointer-events-auto bg-white/80 backdrop-blur-xl transition-all duration-500 ${settings.showBanner ? 'top-10' : 'top-0'}`}>
       <Link 
         to="/" 
         className="flex items-center gap-3 group"
@@ -53,6 +69,7 @@ const Navbar = () => {
         </Link>
       </div>
     </nav>
+    </>
   );
 };
 

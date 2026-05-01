@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AdminPanel from './components/AdminPanel';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
@@ -15,9 +15,17 @@ import { HelmetProvider } from 'react-helmet-async';
 import { motion } from 'motion/react';
 
 import ChatAssistant from './components/ui/ChatAssistant';
+import { useSettingsStore, subscribeToSettings } from './store/useSettingsStore';
 
 export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const { fetchSettings } = useSettingsStore();
+
+  useEffect(() => {
+    fetchSettings();
+    const unsubscribe = subscribeToSettings();
+    return () => unsubscribe();
+  }, []);
 
   return (
     <HelmetProvider>

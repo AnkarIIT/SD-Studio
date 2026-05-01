@@ -3,13 +3,15 @@ import {
   collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc 
 } from 'firebase/firestore';
 import { useAuthStore, loginWithEmail } from '../lib/auth';
-import { db, OperationType, handleFirestoreError } from '../lib/firebase';
+import { db, storage, OperationType, handleFirestoreError } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   Package, Plus, Trash2, Edit2, LogOut, Loader2, Save, X, ShoppingBag, 
   Sparkles, LayoutDashboard, Settings, TrendingUp, Users, CheckCircle2, 
-  Clock, Truck, Search, Globe, Bell, AlertCircle, ChevronRight, Database
+  Clock, Truck, Search, Globe, Bell, AlertCircle, ChevronRight, Database, Upload, Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useSettingsStore } from '../store/useSettingsStore';
 
 interface Product {
   id?: string;
@@ -48,23 +50,50 @@ const AdminPanel = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Global Settings State
-  const [siteSettings, setSiteSettings] = useState({
-    heroTitle: 'SD Studios Lab',
-    heroSubtitle: 'Professional 3D Manufacturing',
-    noticeBanner: 'New Drop Incoming!',
-    showBanner: true
-  });
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const storageRef = ref(storage, `products/${Date.now()}-${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setEditForm(prev => ({ ...prev, image: url }));
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("Failed to beam image to the cloud.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const { settings: siteSettings, fetchSettings, saveSettings } = useSettingsStore();
+  const [settingsForm, setSettingsForm] = useState(siteSettings);
 
   useEffect(() => {
     if (isAuthenticated) {
       fetchProducts();
       fetchOrders();
+      fetchSettings();
     }
     setLoading(false);
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    setSettingsForm(siteSettings);
+  }, [siteSettings]);
+
+  const handleSaveSettings = async () => {
+    try {
+      await saveSettings(settingsForm);
+      alert("Lab Identity Updated Globally!");
+    } catch (err) {
+      alert("Failed to update settings");
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -378,19 +407,29 @@ const AdminPanel = () => {
                   <div className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-xl space-y-8">
                      <div className="flex items-center gap-4"><Globe className="text-violet-600" size={24} /><h3 className="text-2xl font-black text-gray-900 uppercase">Site Content</h3></div>
                      <div className="space-y-6">
-                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Hero Title</label><input type="text" value={siteSettings.heroTitle} onChange={e => setSiteSettings({...siteSettings, heroTitle: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:border-violet-400" /></div>
-                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Hero Subtitle</label><input type="text" value={siteSettings.heroSubtitle} onChange={e => setSiteSettings({...siteSettings, heroSubtitle: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:border-violet-400" /></div>
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Hero Title</label><input type="text" value={settingsForm.heroTitle} onChange={e => setSettingsForm({...settingsForm, heroTitle: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:border-violet-400 transition-all" /></div>
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Hero Subtitle</label><input type="text" value={settingsForm.heroSubtitle} onChange={e => setSettingsForm({...settingsForm, heroSubtitle: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:border-violet-400 transition-all" /></div>
                      </div>
                   </div>
                   <div className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-xl space-y-8">
                      <div className="flex items-center gap-4"><Bell className="text-pink-600" size={24} /><h3 className="text-2xl font-black text-gray-900 uppercase">Live Notice</h3></div>
                      <div className="space-y-6">
-                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Banner Text</label><input type="text" value={siteSettings.noticeBanner} onChange={e => setSiteSettings({...siteSettings, noticeBanner: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:border-violet-400" /></div>
-                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl"><span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Show Banner</span><input type="checkbox" checked={siteSettings.showBanner} onChange={e => setSiteSettings({...siteSettings, showBanner: e.target.checked})} className="w-6 h-6 rounded-lg accent-pink-600" /></div>
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Banner Text</label><input type="text" value={settingsForm.noticeBanner} onChange={e => setSettingsForm({...settingsForm, noticeBanner: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:border-violet-400 transition-all" /></div>
+                        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Show Banner</span>
+                          <button 
+                            onClick={() => setSettingsForm({...settingsForm, showBanner: !settingsForm.showBanner})}
+                            className={`w-12 h-6 rounded-full transition-all duration-500 relative ${settingsForm.showBanner ? 'bg-violet-600' : 'bg-gray-200'}`}
+                          >
+                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-500 ${settingsForm.showBanner ? 'right-1' : 'left-1'}`} />
+                          </button>
+                        </div>
                      </div>
                   </div>
                </div>
-               <button onClick={() => alert("Settings Updated Globally!")} className="bg-gray-900 text-white font-black px-12 py-5 rounded-3xl flex items-center gap-4 hover:bg-violet-600 transition-all uppercase tracking-[0.3em] text-[10px] shadow-2xl shadow-gray-100"><Save size={18} /> Update Lab Identity</button>
+               <button onClick={handleSaveSettings} className="bg-gray-900 text-white font-black px-12 py-5 rounded-3xl flex items-center gap-4 hover:bg-violet-600 hover:scale-105 active:scale-95 transition-all uppercase tracking-[0.3em] text-[10px] shadow-2xl shadow-gray-100">
+                 <Save size={18} /> Update Lab Identity
+               </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -407,7 +446,54 @@ const AdminPanel = () => {
                   <div className="space-y-2 col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Title</label><input required type="text" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-black text-lg tracking-tight uppercase" /></div>
                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Price (₹)</label><input required type="text" value={editForm.price} onChange={e => setEditForm({...editForm, price: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-black text-lg tracking-tight" /></div>
                   <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Tag</label><input required type="text" value={editForm.tag} onChange={e => setEditForm({...editForm, tag: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-black text-lg tracking-tight uppercase" /></div>
-                  <div className="space-y-2 col-span-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Image URL</label><input required type="text" value={editForm.image} onChange={e => setEditForm({...editForm, image: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-black text-sm" /></div>
+                  <div className="space-y-2 col-span-2">
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Product Image</label>
+                    <div className="flex gap-4">
+                      <div className="relative group flex-1">
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleImageUpload}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                        />
+                        <div className={`w-full h-32 border-2 border-dashed rounded-3xl flex flex-col items-center justify-center transition-all duration-500
+                          ${isUploading ? 'bg-violet-50 border-violet-200' : 'bg-gray-50 border-gray-100 group-hover:border-violet-200 group-hover:bg-white shadow-inner'}`}
+                        >
+                          {isUploading ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <Loader2 className="animate-spin text-violet-500" size={32} />
+                              <span className="text-[8px] font-black text-violet-400 uppercase tracking-[0.3em]">Beaming to Cloud...</span>
+                            </div>
+                          ) : editForm.image ? (
+                            <div className="flex flex-col items-center gap-2">
+                              <div className="flex items-center gap-2">
+                                <ImageIcon className="text-violet-500" size={20} />
+                                <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">Image Synced</span>
+                              </div>
+                              <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">Tap to Replace</span>
+                            </div>
+                          ) : (
+                            <>
+                              <Upload className="text-gray-300 mb-2 group-hover:text-violet-400 transition-colors" size={24} />
+                              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest group-hover:text-violet-600 transition-colors">Select Product Shot</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {editForm.image && (
+                        <motion.div 
+                          initial={{ opacity: 0, scale: 0.8 }} 
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="w-32 h-32 rounded-3xl border-4 border-white shadow-xl overflow-hidden bg-gray-50 flex-shrink-0 relative group"
+                        >
+                          <img src={editForm.image} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                             <Sparkles className="text-white" size={20} />
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                  </div>
                   <div className="col-span-2 flex gap-4 pt-6">
                     <button type="submit" className="flex-1 bg-violet-600 text-white font-black py-6 rounded-3xl flex items-center justify-center gap-3 hover:bg-violet-500 shadow-xl shadow-violet-600/20 transition-all uppercase tracking-widest text-[10px]"><Save size={20} /> COMMIT CHANGES</button>
                     <button type="button" onClick={() => setIsEditing(null)} className="px-10 bg-gray-50 text-gray-400 font-black rounded-3xl hover:bg-gray-100 transition-all uppercase tracking-widest text-[10px]">Cancel</button>

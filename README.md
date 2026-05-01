@@ -17,7 +17,7 @@
 ### 🎮 The Command Center (Admin Panel)
 *   **Intel Bar (Analytics)**: Live tracking of Total Revenue, Active Prints, Inventory, and Reach.
 *   **Order Pipeline**: Granular control over the manufacturing lifecycle (Received → Printing → Shipped).
-*   **Product Hub**: Full CRUD suite with a visual "Lab Editor" for managing the catalog.
+*   **Product Hub**: Full CRUD suite with a visual "Lab Editor" for managing the catalog. Now supports **Direct Image Uploads**.
 *   **Global Settings**: One-tap control over site identity, hero content, and promotional banners.
 
 ### 🔐 Security & Operations
@@ -35,7 +35,7 @@
 | **Styling** | Vanilla CSS + Modern Flex/Grid |
 | **Animations** | Motion/React (Framer Motion) |
 | **State Management** | Zustand (Persistent Store) |
-| **Database** | Firebase Firestore |
+| **Database** | Firebase Firestore + Storage |
 | **Icons** | Lucide React |
 
 ---
@@ -63,8 +63,9 @@ npm run dev
 ## 🗺️ Roadmap
 - [x] **Phase 1**: Professional UI/UX Overhaul & Brand Identity.
 - [x] **Phase 2**: Command Center Integration & Order Pipeline.
-- [ ] **Phase 3**: Payment Gateway Integration (Razorpay/Stripe).
-- [ ] **Phase 4**: Interactive 3D Model Previews (Three.js).
+- [x] **Phase 3**: Direct Image Upload System (Firebase Storage).
+- [ ] **Phase 4**: Payment Gateway Integration (Razorpay/Stripe).
+- [ ] **Phase 5**: Interactive 3D Model Previews (Three.js).
 
 ---
 

@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Admins helper
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "admin1@sdstudios.com" ||
+        request.auth.token.email == "admin2@sdstudios.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Products
+    match /products/{productId} {
+      allow read, list: if true;
+      
+      function isValidProduct(data) {
+        return data.title is string && data.title.size() <= 100 &&
+               data.price is string && data.price.size() <= 20 &&
+               data.tag is string && data.tag.size() <= 50 &&
+               data.color is string && data.color.size() <= 200;
+      }
+      
+      allow create: if isAdmin() && isValidProduct(request.resource.data);
+      allow update: if isAdmin() && isValidProduct(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // Admins
+    match /admins/{adminId} {
+      allow read: if isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      // Special rule: Allow first user to register if collection is empty
+      // WARNING: In production, you'd seed this via Cloud Functions or CLI
+      allow create: if isSignedIn() && (
+        request.auth.token.email == "66shashwatkumar66@gmail.com" || 
+        isAdmin()
+      );
+    }
+    
+    // Testing connection
+    match /test/connection {
+      allow read: if true;
+    }
+  }
+}

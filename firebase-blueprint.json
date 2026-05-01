@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A 3D printed product available for sale.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "price": { "type": "string" },
+        "tag": { "type": "string" },
+        "color": { "type": "string" },
+        "imageUrl": { "type": "string", "format": "uri" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "price", "tag", "color"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "User with administrative access.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["superadmin", "editor"] }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "products": {
+      "schema": "Product",
+      "description": "List of all featured products."
+    },
+    "admins": {
+      "schema": "Admin",
+      "description": "List of authorized administrators."
+    }
+  }
+}

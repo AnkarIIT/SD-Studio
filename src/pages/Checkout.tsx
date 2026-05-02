@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { Loader2, CheckCircle2, Copy, ExternalLink, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { sendOrderConfirmation } from '../lib/email';
 
 const checkoutSchema = z.object({
   firstName: z.string().min(2, "First name is required"),
@@ -24,76 +25,64 @@ const checkoutSchema = z.object({
 
 type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
+import PaymentPortal from '../components/ui/PaymentPortal';
+
 const Checkout = () => {
   const { items, getCartTotal, clearCart } = useCartStore();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [showPortal, setShowPortal] = useState(false);
+  const [pendingData, setPendingData] = useState<CheckoutFormData | null>(null);
 
   const { register, handleSubmit, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema)
   });
 
-  const processPayment = async (data: CheckoutFormData) => {
+  const initiatePayment = async (data: CheckoutFormData) => {
     if (items.length === 0) return alert("Your cart is empty!");
-    
+    setPendingData(data);
+    setShowPortal(true);
+  };
+
+  const handlePaymentSuccess = async (transactionId: string) => {
+    if (!pendingData) return;
     setIsProcessing(true);
-    const isLoaded = await loadRazorpayScript();
     
-    if (!isLoaded) {
-      alert('Razorpay failed to load. Are you online?');
+    try {
+      const docRef = await addDoc(collection(db, 'orders'), {
+        customerName: `${pendingData.firstName} ${pendingData.lastName}`,
+        email: pendingData.email,
+        phone: pendingData.phone,
+        address: `${pendingData.address}, ${pendingData.city} - ${pendingData.pincode}`,
+        customNotes: pendingData.customNotes || '',
+        total: getCartTotal(),
+        items: items.map(item => ({ id: item.id, title: item.title, quantity: item.quantity, price: item.price })),
+        status: 'Processing',
+        paymentMethod: 'Custom Lab Transfer',
+        transactionId: transactionId,
+        createdAt: serverTimestamp()
+      });
+
+      setOrderId(docRef.id);
+      setIsSuccess(true);
+      setShowPortal(false);
+      clearCart();
+      
+      // Send confirmation email
+      await sendOrderConfirmation(
+        pendingData.email, 
+        docRef.id, 
+        `${pendingData.firstName} ${pendingData.lastName}`, 
+        getCartTotal().toString()
+      );
+    } catch (err: any) {
+      console.error("Order Error:", err);
+      alert(`Failed to secure order: ${err.message}`);
+    } finally {
       setIsProcessing(false);
-      return;
     }
-
-    const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_DEFAULT',
-      amount: Math.round(getCartTotal() * 100), // paise, integer
-      currency: 'INR',
-      name: 'SD Studios',
-      description: 'Premium 3D Printed Gear',
-      image: 'https://via.placeholder.com/150', // Replace with your logo URL
-      handler: async function (response: any) {
-        try {
-          const docRef = await addDoc(collection(db, 'orders'), {
-            customerName: `${data.firstName} ${data.lastName}`,
-            email: data.email,
-            phone: data.phone,
-            address: `${data.address}, ${data.city} - ${data.pincode}`,
-            customNotes: data.customNotes || '',
-            total: getCartTotal(),
-            items: items.map(item => ({ id: item.id, title: item.title, quantity: item.quantity, price: item.price })),
-            status: 'Processing',
-            paymentId: response.razorpay_payment_id,
-            createdAt: serverTimestamp()
-          });
-          
-          setOrderId(docRef.id);
-          setIsSuccess(true);
-          clearCart();
-        } catch (err) {
-          console.error("Error saving order:", err);
-          alert('Payment succeeded but failed to save order. Please contact support.');
-        }
-      },
-      prefill: {
-        name: `${data.firstName} ${data.lastName}`,
-        email: data.email,
-        contact: data.phone
-      },
-      theme: {
-        color: '#00E5FF'
-      }
-    };
-
-    const paymentObject = new (window as any).Razorpay(options);
-    paymentObject.on('payment.failed', function (response: any) {
-      alert(`Payment failed: ${response.error.description}`);
-      setIsProcessing(false);
-    });
-    paymentObject.open();
-    setIsProcessing(false); // Reset immediately because modal is open
   };
 
   return (
@@ -169,6 +158,15 @@ const Checkout = () => {
             exit={{ opacity: 0 }}
             className="max-w-7xl mx-auto relative z-10"
           >
+            {showPortal && (
+              <PaymentPortal 
+                amount={getCartTotal()} 
+                customerName={pendingData ? `${pendingData.firstName} ${pendingData.lastName}` : ''}
+                onSuccess={handlePaymentSuccess}
+                onCancel={() => setShowPortal(false)}
+              />
+            )}
+
             <div className="mb-20">
               <div className="flex items-center gap-2 mb-4">
                  <Sparkles size={16} className="text-violet-500" />
@@ -186,7 +184,7 @@ const Checkout = () => {
                     <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">1</span>
                     Shipping Details
                   </h3>
-                  <form id="checkout-form" onSubmit={handleSubmit(processPayment)} className="grid md:grid-cols-2 gap-6 p-10 bg-gray-50 rounded-[3rem] border border-gray-100">
+                  <form id="checkout-form" onSubmit={handleSubmit(initiatePayment)} className="grid md:grid-cols-2 gap-6 p-10 bg-gray-50 rounded-[3rem] border border-gray-100">
                     <div className="space-y-4">
                       <div>
                         <input {...register('firstName')} placeholder="First Name" className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium" />

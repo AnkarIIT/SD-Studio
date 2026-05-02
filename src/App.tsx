@@ -9,6 +9,7 @@ import ProductDetails from './pages/ProductDetails';
 import Checkout from './pages/Checkout';
 import RequestModel from './pages/RequestModel';
 import TrackOrder from './pages/TrackOrder';
+import CheckoutSuccess from './pages/CheckoutSuccess';
 import CartDrawer from './components/cart/CartDrawer';
 import { MessageSquare, X } from 'lucide-react';
 import { HelmetProvider } from 'react-helmet-async';
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="/shop" element={<><Navbar /><Shop /><Footer /></>} />
           <Route path="/product/:id" element={<><Navbar /><ProductDetails /><Footer /></>} />
           <Route path="/checkout" element={<><Navbar /><Checkout /><Footer /></>} />
+          <Route path="/checkout/success" element={<><Navbar /><CheckoutSuccess /><Footer /></>} />
           <Route path="/request" element={<><Navbar /><RequestModel /><Footer /></>} />
           <Route path="/track" element={<><Navbar /><TrackOrder /><Footer /></>} />
           <Route path="/" element={

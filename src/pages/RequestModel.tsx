@@ -5,8 +5,11 @@ import { z } from 'zod';
 import { Loader2, UploadCloud, Sparkles, Box, Droplets, Zap, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'motion/react';
+import { sendOrderConfirmation } from '../lib/email';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { loadRazorpayScript } from '../lib/razorpay';
+import { useEffect } from 'react';
 
 const requestSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -17,6 +20,8 @@ const requestSchema = z.object({
 
 type RequestFormData = z.infer<typeof requestSchema>;
 
+import PaymentPortal from '../components/ui/PaymentPortal';
+
 const RequestModel = () => {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
   const [selectedMaterial, setSelectedMaterial] = useState('PLA');
@@ -24,14 +29,20 @@ const RequestModel = () => {
   const [analyzing, setAnalyzing] = useState(false);
   const [quoteResults, setQuoteResults] = useState<{ weight: number, price: number } | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showPortal, setShowPortal] = useState(false);
+  const [pendingData, setPendingData] = useState<RequestFormData | null>(null);
   
-  // LAB COST CONFIGURATION - Change these to adjust your pricing!
+  // Persistence Keys
+  const STORAGE_KEY = 'sd_studios_request_draft';
+
+  // LAB COST CONFIGURATION
   const LAB_CONFIG = {
     materialDensity: { PLA: 1.24, PETG: 1.27, TPU: 1.21 },
-    infillFactor: 0.4, // 20% infill + shells
-    costPerGram: 2.5,  // Cost of plastic + electricity
-    laborFee: 150,     // Base setup fee
-    profitMargin: 2.1   // 1.0 (base) + 1.1 (110% profit)
+    infillFactor: 0.4,
+    costPerGram: 2.5,
+    laborFee: 150,
+    profitMargin: 2.1
   };
 
   const calculateSTLVolume = async (file: File): Promise<number> => {
@@ -81,42 +92,92 @@ const RequestModel = () => {
     }
   };
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<RequestFormData>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema)
   });
 
-  const onSubmit = async (data: RequestFormData) => {
-    if (!file) {
-      alert("Please upload a 3D model first!");
+  // Load Draft from Cache
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const draft = JSON.parse(saved);
+      Object.keys(draft).forEach((key) => {
+        setValue(key as any, draft[key]);
+      });
+      if (draft.material) setSelectedMaterial(draft.material);
+    }
+  }, [setValue]);
+
+  // Save Draft to Cache
+  const formValues = watch();
+  useEffect(() => {
+    const draft = { ...formValues, material: selectedMaterial };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  }, [formValues, selectedMaterial]);
+
+  const getQueuePosition = async () => {
+    try {
+      const q = query(collection(db, 'orders'), where('status', '==', 'Processing'));
+      const snapshot = await getDocs(q);
+      return snapshot.size + 1;
+    } catch (e) {
+      return 1;
+    }
+  };
+
+  const initiatePayment = async (data: RequestFormData) => {
+    if (!file || !quoteResults) {
+      alert("Please upload and analyze a 3D model first!");
       return;
     }
-    
+    setPendingData(data);
+    setShowPortal(true);
+  };
+
+  const handlePaymentSuccess = async (transactionId: string) => {
+    if (!pendingData || !quoteResults || !file) return;
     setStatus('submitting');
+    
     try {
-      // Save order to Firestore
-      const orderRef = await addDoc(collection(db, 'orders'), {
-        ...data,
-        customerName: data.name,
+      const queuePos = await getQueuePosition();
+      const docRef = await addDoc(collection(db, 'orders'), {
+        customerName: pendingData.name,
+        email: pendingData.email,
+        phone: pendingData.phone,
+        description: pendingData.description,
         type: 'custom',
         fileName: file.name,
         material: selectedMaterial,
-        estimatedWeight: quoteResults?.weight || 0,
-        estimatedPrice: quoteResults?.price || 'Custom Quote Needed',
-        total: typeof quoteResults?.price === 'number' ? quoteResults.price : 0,
-        items: [{ title: `Custom print: ${file.name}`, quantity: 1, price: String(quoteResults?.price ?? '') }],
-        status: 'Received',
+        weight: quoteResults.weight,
+        totalCost: quoteResults.price,
+        status: 'Processing',
+        paymentMethod: 'Custom Lab Transfer',
+        transactionId: transactionId,
+        queuePosition: queuePos,
         createdAt: serverTimestamp()
       });
       
-      setOrderId(orderRef.id);
+      setOrderId(docRef.id);
       setStatus('success');
+      setShowPortal(false);
+      localStorage.removeItem(STORAGE_KEY);
+      
+      // Send confirmation email
+      await sendOrderConfirmation(
+        pendingData.email, 
+        docRef.id, 
+        pendingData.name, 
+        quoteResults.price.toString(),
+        queuePos
+      );
+      
       reset();
       setFile(null);
       setQuoteResults(null);
-    } catch (err) {
-      console.error("Order failed", err);
+    } catch (err: any) {
+      console.error("Order Error:", err);
+      alert(`Failed to secure order: ${err.message}`);
       setStatus('idle');
-      alert("Failed to submit order. Please check connection.");
     }
   };
 
@@ -186,6 +247,15 @@ const RequestModel = () => {
               exit={{ opacity: 0 }}
               className="grid lg:grid-cols-3 gap-12 items-start"
             >
+              {showPortal && (
+                <PaymentPortal 
+                  amount={quoteResults?.price || 0} 
+                  customerName={pendingData ? pendingData.name : ''}
+                  onSuccess={handlePaymentSuccess}
+                  onCancel={() => setShowPortal(false)}
+                />
+              )}
+
               {/* Left Column: Configuration */}
               <div className="lg:col-span-2 space-y-12">
                 
@@ -260,7 +330,7 @@ const RequestModel = () => {
                     <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">3</span>
                     Lab Coordinates
                   </h3>
-                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                  <form onSubmit={handleSubmit(initiatePayment)} className="space-y-4">
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <input {...register('name')} placeholder="Full Name" className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm" />
@@ -311,15 +381,15 @@ const RequestModel = () => {
                     </p>
 
                     <button 
-                      onClick={handleSubmit(onSubmit)}
-                      disabled={status === 'submitting'}
+                      onClick={handleSubmit(initiatePayment)}
+                      disabled={isProcessing || !file || status === 'submitting'}
                       className="w-full bg-violet-600 text-white font-black py-6 rounded-3xl flex items-center justify-center gap-4 hover:bg-violet-500 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-violet-600/20 disabled:opacity-50 group"
                     >
-                      {status === 'submitting' ? (
+                      {isProcessing || status === 'submitting' ? (
                         <Loader2 className="animate-spin" size={20} />
                       ) : (
                         <>
-                          INITIATE PRODUCTION
+                          SECURE PAYMENT
                           <Zap size={16} className="fill-current group-hover:scale-125 transition-transform" />
                         </>
                       )}

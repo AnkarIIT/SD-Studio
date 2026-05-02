@@ -1,26 +1,31 @@
 import { Helmet } from 'react-helmet-async';
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect, useCallback } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { Loader2, Search, Package, CheckCircle2, Box, Truck, Sparkles, Settings } from 'lucide-react';
+import { Loader2, Search, CheckCircle2, Box, Truck, Sparkles, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const TrackOrder = () => {
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const orderJustPlaced = Boolean((location.state as { orderPlaced?: boolean } | null)?.orderPlaced);
+
   const [orderId, setOrderId] = useState('');
   const [loading, setLoading] = useState(false);
   const [orderData, setOrderData] = useState<any>(null);
   const [error, setError] = useState('');
 
-  const handleTrack = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!orderId.trim()) return;
+  const fetchOrderById = useCallback(async (rawId: string) => {
+    const id = rawId.trim();
+    if (!id) return;
 
     setLoading(true);
     setError('');
     setOrderData(null);
 
     try {
-      const docRef = doc(db, 'orders', orderId.trim());
+      const docRef = doc(db, 'orders', id);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
@@ -34,6 +39,20 @@ const TrackOrder = () => {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    const fromQuery = searchParams.get('order')?.trim();
+    if (fromQuery) {
+      setOrderId(fromQuery);
+      void fetchOrderById(fromQuery);
+    }
+  }, [searchParams, fetchOrderById]);
+
+  const handleTrack = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!orderId.trim()) return;
+    await fetchOrderById(orderId);
   };
 
   const statusSteps = [
@@ -73,6 +92,16 @@ const TrackOrder = () => {
           <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-gray-900 leading-[0.85] mb-8">
             Track Your <br/> <span className="text-transparent bg-clip-text bg-linear-to-r from-violet-600 to-pink-500 italic">Magic.</span>
           </h1>
+
+          {orderJustPlaced && (
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="max-w-md mx-auto mb-6 text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-2xl px-5 py-3 text-xs font-bold"
+            >
+              Payment successful — your order is saved. The ID below matches your receipt.
+            </motion.p>
+          )}
           
           <form onSubmit={handleTrack} className="max-w-md mx-auto flex gap-3">
             <div className="relative flex-1">
@@ -162,7 +191,7 @@ const TrackOrder = () => {
                 <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-xl">
                   <h4 className="text-gray-400 font-black text-[10px] uppercase tracking-widest mb-8">Creation Manifest</h4>
                   <div className="space-y-6">
-                    {orderData.items.map((item: any, idx: number) => (
+                    {(orderData.items ?? []).map((item: any, idx: number) => (
                       <div key={idx} className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                            <div className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 font-black text-xs">

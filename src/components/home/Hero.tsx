@@ -1,4 +1,4 @@
-import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { motion, useMotionValue, useSpring, useTransform, Variants } from 'motion/react';
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
@@ -24,12 +24,12 @@ const Hero = () => {
     mouseY.set(y);
   };
 
-  const titleVariants = {
+  const titleVariants: Variants = {
     hidden: { y: 100, opacity: 0 },
     visible: (i: number) => ({
       y: 0,
       opacity: 1,
-      transition: { duration: 0.8, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] }
+      transition: { duration: 0.8, delay: i * 0.1, ease: [0.22, 1, 0.36, 1] as const }
     })
   };
 
@@ -77,17 +77,17 @@ const Hero = () => {
                <span className="text-violet-600 font-bold text-[10px] uppercase tracking-widest">Digital Dreams → Physical Reality</span>
             </div>
             <div className="space-y-4 overflow-visible">
-              <div className="overflow-visible">
+              <div className="overflow-visible py-4">
                 <motion.h1 
                   key={settings.heroTitle}
                   custom={0} initial="hidden" animate="visible" variants={titleVariants}
-                  className="text-[11vw] lg:text-9xl font-black leading-[0.85] text-gray-900 tracking-tighter pb-2 whitespace-nowrap lg:whitespace-normal"
+                  className="text-[11vw] lg:text-9xl font-black leading-[1.12] text-gray-900 tracking-tighter pb-2 whitespace-normal break-words hyphens-auto"
                 >
                   {settings.heroTitle.split(' ').map((word, i) => (
-                    <span key={i}>
+                    <span key={i} className="inline-block">
                       {word === 'Magic' || word === 'Life' ? (
-                        <span className="text-transparent bg-clip-text bg-linear-to-r from-violet-600 to-pink-500 italic">{word} </span>
-                      ) : word + ' '}
+                        <span className="inline-block text-transparent bg-clip-text bg-linear-to-r from-violet-600 to-pink-500 italic pr-12">{word}</span>
+                      ) : word + '\u00A0'}
                     </span>
                   ))}
                 </motion.h1>

@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { 
-  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, getDoc, setDoc 
+  collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp, Timestamp 
 } from 'firebase/firestore';
 import { useAuthStore, loginWithEmail } from '../lib/auth';
-import { db, storage, OperationType, handleFirestoreError } from '../lib/firebase';
+import { auth, db, loginWithGoogle, logout as firebaseLogout, storage, OperationType, handleFirestoreError } from '../lib/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   Package, Plus, Trash2, Edit2, LogOut, Loader2, Save, X, ShoppingBag, 
   Sparkles, LayoutDashboard, Settings, TrendingUp, Users, CheckCircle2, 
-  Clock, Truck, Search, Globe, Bell, AlertCircle, ChevronRight, Database, Upload, Image as ImageIcon
+  Clock, Truck, Search, Globe, Bell, AlertCircle, ChevronRight, Database, Upload, Image as ImageIcon, Mail
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { DEFAULT_SHOP_PRODUCTS } from '../data/shopCatalog';
 
 interface Product {
   id?: string;
@@ -37,12 +39,23 @@ interface Order {
   createdAt: any;
 }
 
+interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  createdAt?: Timestamp;
+}
+
 const AdminPanel = () => {
   const { isAuthenticated, logout } = useAuthStore();
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [googleConnecting, setGoogleConnecting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'settings'>('products');
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
+  const [activeTab, setActiveTab] = useState<'products' | 'orders' | 'messages' | 'settings'>('products');
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Product>({ 
     title: '', price: '', tag: 'New Drop', color: 'bg-violet-500', image: '', description: '', category: 'General' 
@@ -51,6 +64,7 @@ const AdminPanel = () => {
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -74,13 +88,23 @@ const AdminPanel = () => {
   const [settingsForm, setSettingsForm] = useState(siteSettings);
 
   useEffect(() => {
+    const unsub = onAuthStateChanged(auth, setFirebaseUser);
+    return () => unsub();
+  }, []);
+
+  useEffect(() => {
     if (isAuthenticated) {
       fetchProducts();
       fetchOrders();
       fetchSettings();
+      if (firebaseUser) {
+        fetchContactMessages();
+      } else {
+        setContactMessages([]);
+      }
     }
     setLoading(false);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, firebaseUser]);
 
   useEffect(() => {
     setSettingsForm(siteSettings);
@@ -92,6 +116,18 @@ const AdminPanel = () => {
       alert("Lab Identity Updated Globally!");
     } catch (err) {
       alert("Failed to update settings");
+    }
+  };
+
+  const fetchContactMessages = async () => {
+    try {
+      const q = query(collection(db, 'contactMessages'), orderBy('createdAt', 'desc'));
+      const snap = await getDocs(q);
+      const list: ContactMessage[] = [];
+      snap.forEach((d) => list.push({ id: d.id, ...d.data() } as ContactMessage));
+      setContactMessages(list);
+    } catch (err) {
+      console.error('Failed to fetch contact messages', err);
     }
   };
 
@@ -124,19 +160,8 @@ const AdminPanel = () => {
   };
 
   const seedProducts = async () => {
-    const initialProducts = [
-      { title: "Stealth NFC Keychain", price: "599", tag: "Tech Gear", image: "https://images.unsplash.com/photo-1582142839930-2233e73899d4?q=80&w=800&auto=format&fit=crop", color: "bg-gray-900" },
-      { title: "Anime Showcase Stand", price: "899", tag: "Anime", image: "https://images.unsplash.com/photo-1618336753974-aae8e04506aa?q=80&w=800&auto=format&fit=crop", color: "bg-rose-500" },
-      { title: "Articulated Magic Dragon", price: "1499", tag: "Anime", image: "https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=800&auto=format&fit=crop", color: "bg-violet-500" },
-      { title: "Geometric Voronoi Vase", price: "2199", tag: "Home Lab", image: "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=800&auto=format&fit=crop", color: "bg-pink-500" },
-      { title: "Cyberpunk Phone Stand", price: "799", tag: "Tech Gear", image: "https://images.unsplash.com/photo-1586771107445-d3ca888129ff?q=80&w=800&auto=format&fit=crop", color: "bg-indigo-500" },
-      { title: "Neon Cable Organizer", price: "449", tag: "Keychains", image: "https://images.unsplash.com/photo-1591488320449-011701bb6704?q=80&w=800&auto=format&fit=crop", color: "bg-orange-500" },
-      { title: "Minimalist Desk Lamp", price: "3499", tag: "Home Lab", image: "https://images.unsplash.com/photo-1534073828943-f801091bb18c?q=80&w=800&auto=format&fit=crop", color: "bg-cyan-500" },
-      { title: "Low-Poly Planter Trio", price: "1299", tag: "Home Lab", image: "https://images.unsplash.com/photo-1485955900006-10f4d324d411?q=80&w=800&auto=format&fit=crop", color: "bg-teal-500" }
-    ];
-
     try {
-      for (const prod of initialProducts) {
+      for (const prod of DEFAULT_SHOP_PRODUCTS) {
         await addDoc(collection(db, 'products'), {
           ...prod,
           createdAt: serverTimestamp(),
@@ -198,6 +223,27 @@ const AdminPanel = () => {
     }
   };
 
+  const handleConnectGoogle = async () => {
+    setGoogleConnecting(true);
+    try {
+      await loginWithGoogle();
+    } catch (e) {
+      console.error(e);
+      alert('Google sign-in failed. Allow pop-ups and use an admin Google account listed in Firebase.');
+    } finally {
+      setGoogleConnecting(false);
+    }
+  };
+
+  const handleLogoutAll = async () => {
+    try {
+      await firebaseLogout();
+    } catch {
+      /* ignore */
+    }
+    logout();
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
@@ -255,6 +301,12 @@ const AdminPanel = () => {
 
   const filteredProducts = products.filter(p => p.title.toLowerCase().includes(searchQuery.toLowerCase()));
   const filteredOrders = orders.filter(o => o.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || o.id.includes(searchQuery));
+  const filteredMessages = contactMessages.filter(
+    (m) =>
+      m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      m.message.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="min-h-screen bg-white pb-32">
@@ -290,20 +342,57 @@ const AdminPanel = () => {
            ))}
         </div>
 
+        {!firebaseUser && (
+          <div className="mb-10 p-6 md:p-8 rounded-[2rem] border border-amber-200 bg-amber-50 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div className="flex gap-4 items-start">
+              <AlertCircle className="text-amber-600 shrink-0 mt-1" size={24} />
+              <div>
+                <p className="font-black text-gray-900 uppercase tracking-tight text-sm mb-1">Connect Firebase (Google)</p>
+                <p className="text-xs text-gray-600 leading-relaxed max-w-2xl">
+                  Catalog, orders, settings, and inbox sync through Firestore. Sign in with the same Google account that is allowed as admin in Firebase (Firestore rules / admins collection).
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleConnectGoogle}
+              disabled={googleConnecting}
+              className="shrink-0 bg-gray-900 text-white font-black px-8 py-4 rounded-2xl uppercase tracking-widest text-[10px] hover:bg-violet-600 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {googleConnecting ? <Loader2 className="animate-spin" size={18} /> : null}
+              Sign in with Google
+            </button>
+          </div>
+        )}
+
+        {firebaseUser && (
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-6">
+            Firebase: <span className="text-violet-600">{firebaseUser.email}</span>
+          </p>
+        )}
+
         <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-8">
           <div className="flex-1">
             <h1 className="text-6xl md:text-9xl font-black tracking-tighter text-gray-900 leading-[0.8]">
               The Lab <br/> <span className="text-transparent bg-clip-text bg-linear-to-r from-violet-600 to-pink-500 italic">Controls.</span>
             </h1>
             <div className="flex flex-wrap gap-3 mt-12">
-              {['products', 'orders', 'settings'].map((tab) => (
+              {(
+                [
+                  ['products', 'products'],
+                  ['orders', 'orders'],
+                  ['messages', 'inbox'],
+                  ['settings', 'settings'],
+                ] as const
+              ).map(([key, label]) => (
                 <button 
-                  key={tab}
-                  onClick={() => setActiveTab(tab as any)} 
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveTab(key)} 
                   className={`uppercase tracking-[0.3em] text-[10px] font-black px-10 py-4 rounded-2xl transition-all duration-500
-                    ${activeTab === tab ? 'bg-violet-600 text-white shadow-xl shadow-violet-600/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
+                    ${activeTab === key ? 'bg-violet-600 text-white shadow-xl shadow-violet-600/20' : 'bg-gray-50 text-gray-400 hover:bg-gray-100'}`}
                 >
-                  {tab}
+                  {label}
                 </button>
               ))}
             </div>
@@ -330,7 +419,7 @@ const AdminPanel = () => {
                 </button>
               </>
             )}
-            <button onClick={logout} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 text-gray-400 hover:text-red-500 transition-all">
+            <button type="button" onClick={() => void handleLogoutAll()} className="p-4 rounded-2xl bg-gray-50 border border-gray-100 text-gray-400 hover:text-red-500 transition-all" title="Sign out">
               <LogOut size={20} />
             </button>
           </div>
@@ -357,6 +446,38 @@ const AdminPanel = () => {
                   </div>
                 </div>
               ))}
+            </motion.div>
+          )}
+
+          {activeTab === 'messages' && (
+            <motion.div key="messages" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+              {!firebaseUser ? (
+                <div className="py-24 text-center bg-gray-50 rounded-[4rem] border border-gray-100">
+                  <Mail className="mx-auto text-gray-200 mb-6" size={64} />
+                  <p className="text-gray-500 font-black text-[12px] uppercase tracking-[0.4em]">Sign in with Google to load inbox</p>
+                </div>
+              ) : filteredMessages.length === 0 ? (
+                <div className="py-24 text-center bg-gray-50 rounded-[4rem] border border-gray-100">
+                  <Mail className="mx-auto text-gray-200 mb-6" size={64} />
+                  <p className="text-gray-400 font-black text-[12px] uppercase tracking-[0.4em]">No messages yet</p>
+                </div>
+              ) : (
+                filteredMessages.map((m) => (
+                  <div key={m.id} className="bg-white p-8 md:p-10 rounded-[3rem] border border-gray-100 shadow-xl text-left">
+                    <div className="flex flex-wrap justify-between gap-4 mb-6">
+                      <div>
+                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-1">From</p>
+                        <p className="text-xl font-black text-gray-900">{m.name}</p>
+                        <a href={`mailto:${m.email}`} className="text-sm text-violet-600 font-bold hover:underline">{m.email}</a>
+                      </div>
+                      <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest">
+                        {m.createdAt instanceof Timestamp ? m.createdAt.toDate().toLocaleString() : ''}
+                      </p>
+                    </div>
+                    <p className="text-gray-600 text-sm leading-relaxed whitespace-pre-wrap border-t border-gray-50 pt-6">{m.message}</p>
+                  </div>
+                ))
+              )}
             </motion.div>
           )}
 
@@ -409,6 +530,8 @@ const AdminPanel = () => {
                      <div className="space-y-6">
                         <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Hero Title</label><input type="text" value={settingsForm.heroTitle} onChange={e => setSettingsForm({...settingsForm, heroTitle: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:border-violet-400 transition-all" /></div>
                         <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Hero Subtitle</label><input type="text" value={settingsForm.heroSubtitle} onChange={e => setSettingsForm({...settingsForm, heroSubtitle: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-black uppercase text-sm outline-none focus:border-violet-400 transition-all" /></div>
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Contact email (site + chat)</label><input type="email" value={settingsForm.contactEmail} onChange={e => setSettingsForm({...settingsForm, contactEmail: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-medium text-sm outline-none focus:border-violet-400 transition-all" /></div>
+                        <div className="space-y-2"><label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4">Instagram URL</label><input type="url" value={settingsForm.instagramUrl} onChange={e => setSettingsForm({...settingsForm, instagramUrl: e.target.value})} className="w-full bg-gray-50 border border-gray-100 rounded-2xl px-6 py-4 font-medium text-sm outline-none focus:border-violet-400 transition-all" /></div>
                      </div>
                   </div>
                   <div className="bg-white p-12 rounded-[3.5rem] border border-gray-100 shadow-xl space-y-8">

@@ -29,7 +29,7 @@ export const useSettingsStore = create<SettingsState>()(
         noticeBanner: 'New Drop Incoming! Check the Collection 🧬',
         showBanner: true,
         contactEmail: 'lab@sdstudios.com',
-        instagramUrl: 'https://instagram.com/sdstudios'
+        instagramUrl: 'https://www.instagram.com/3dbysd.in/'
       },
       loading: true,
 

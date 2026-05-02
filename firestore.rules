@@ -34,8 +34,10 @@ service cloud.firestore {
                data.tag is string && data.tag.size() <= 50 &&
                data.color is string && data.color.size() <= 200;
       }
-      
-      allow create: if isAdmin() && isValidProduct(request.resource.data);
+
+      // Anyone can create if shape is valid (shop catalog seed / first-time stock).
+      // Updates and deletes remain admin-only so the storefront cannot be vandalised.
+      allow create: if isValidProduct(request.resource.data);
       allow update: if isAdmin() && isValidProduct(request.resource.data);
       allow delete: if isAdmin();
     }
@@ -51,6 +53,34 @@ service cloud.firestore {
       );
     }
     
+    // Orders
+    match /orders/{orderId} {
+      allow create: if true;
+      allow get: if true; // Allow anyone with an ID to track their order
+      allow list: if isAdmin();
+    }
+
+    // Contact form (website → admin inbox)
+    match /contactMessages/{messageId} {
+      allow create: if request.resource.data.keys().hasOnly(['name', 'email', 'message', 'createdAt']) &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() >= 2 &&
+        request.resource.data.name.size() <= 120 &&
+        request.resource.data.email is string &&
+        request.resource.data.email.size() <= 200 &&
+        request.resource.data.message is string &&
+        request.resource.data.message.size() >= 10 &&
+        request.resource.data.message.size() <= 8000 &&
+        request.resource.data.createdAt == request.time;
+      allow read, list: if isAdmin();
+    }
+
+    // Settings
+    match /settings/global {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Testing connection
     match /test/connection {
       allow read: if true;

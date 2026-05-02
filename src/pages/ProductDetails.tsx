@@ -2,7 +2,8 @@ import { Helmet } from 'react-helmet-async';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCartStore } from '../store/useCartStore';
 import { useState, useEffect } from 'react';
-import { ChevronDown, ChevronUp, Sparkles, Box, Droplets, Zap, ShieldCheck, Truck, Info, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { ChevronDown, ChevronUp, Sparkles, Box, Droplets, Zap, ShieldCheck, Truck, Info, ShoppingBag, ArrowLeft, Loader2 } from 'lucide-react';
+import ProductPreview3D from '../components/product/ProductPreview3D';
 import { motion, AnimatePresence } from 'motion/react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
@@ -45,7 +46,7 @@ const ProductDetails = () => {
 
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-white">
-      <Loader2 className="animate-spin text-violet-600" size={48} />
+      <Loader2 className="animate-spin text-violet-600" strokeWidth={2.5} size={48} />
     </div>
   );
 
@@ -71,24 +72,26 @@ const ProductDetails = () => {
         </button>
 
         <div className="grid lg:grid-cols-[1.2fr_1fr] gap-16 lg:gap-24 items-start">
-          {/* Image Gallery */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="aspect-square bg-gray-50 rounded-[3.5rem] flex items-center justify-center border-4 border-white shadow-2xl relative overflow-hidden group"
-          >
-            <img 
-              src={product?.image || "/assets/placeholder.png"} 
-              alt={product?.title} 
-              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
-            />
-            <div className="absolute top-8 left-8 flex flex-col gap-3">
-               <div className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl flex items-center gap-2">
-                  <Sparkles size={14} className="text-violet-500" />
-                  <span className="text-gray-900 font-black text-[10px] uppercase tracking-widest">{product?.tag || 'Limited'}</span>
-               </div>
-            </div>
-          </motion.div>
+          <div className="space-y-6">
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="aspect-square bg-gray-50 rounded-[3.5rem] flex items-center justify-center border-4 border-white shadow-2xl relative overflow-hidden group"
+            >
+              <img 
+                src={product?.image || "/assets/placeholder.png"} 
+                alt={product?.title} 
+                className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" 
+              />
+              <div className="absolute top-8 left-8 flex flex-col gap-3">
+                 <div className="px-4 py-2 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl flex items-center gap-2">
+                    <Sparkles size={14} className="text-violet-500" />
+                    <span className="text-gray-900 font-black text-[10px] uppercase tracking-widest">{product?.tag || 'Limited'}</span>
+                 </div>
+              </div>
+            </motion.div>
+            <ProductPreview3D />
+          </div>
 
           {/* Product Actions */}
           <div className="space-y-12">
@@ -113,7 +116,6 @@ const ProductDetails = () => {
                   {[
                     { id: 'PLA', icon: Box, label: 'PLA' },
                     { id: 'PETG', icon: ShieldCheck, label: 'PETG' },
-                    { id: 'Resin', icon: Droplets, label: 'RESIN' }
                   ].map(opt => (
                     <button 
                       key={opt.id}
@@ -222,13 +224,3 @@ const ProductDetails = () => {
 };
 
 export default ProductDetails;
-
-const Loader2 = ({ className, size }: { className?: string, size?: number }) => (
-  <motion.div 
-    animate={{ rotate: 360 }}
-    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-    className={className}
-  >
-    <Box size={size} />
-  </motion.div>
-);

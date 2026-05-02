@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { Loader2, Send, Sparkles } from 'lucide-react';
 import { useState, useRef } from 'react';
 import emailjs from '@emailjs/browser';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 const contactSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -24,28 +26,28 @@ const ContactForm = () => {
   const onSubmit = async (data: ContactFormData) => {
     setStatus('submitting');
     try {
-      // NOTE: Replace these with your actual EmailJS keys!
-      const SERVICE_ID = 'YOUR_SERVICE_ID';
-      const TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
-      const PUBLIC_KEY = 'YOUR_PUBLIC_KEY';
-      
-      // If keys are placeholder, simulate success to avoid breaking UI during testing
-      if (SERVICE_ID === 'YOUR_SERVICE_ID') {
-         await new Promise(resolve => setTimeout(resolve, 1500));
-         console.warn("EmailJS keys not configured. Simulating success.");
-      } else {
-         if (formRef.current) {
-            await emailjs.sendForm(SERVICE_ID, TEMPLATE_ID, formRef.current, PUBLIC_KEY);
-         }
+      await addDoc(collection(db, 'contactMessages'), {
+        name: data.name,
+        email: data.email,
+        message: data.message,
+        createdAt: serverTimestamp(),
+      });
+
+      const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID ?? 'YOUR_SERVICE_ID';
+      const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID ?? 'YOUR_TEMPLATE_ID';
+      const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY ?? 'YOUR_PUBLIC_KEY';
+
+      if (SERVICE_ID !== 'YOUR_SERVICE_ID' && formRef.current) {
+        await emailjs.sendForm(SERVICE_ID, TEMPLATE_ID, formRef.current, PUBLIC_KEY);
       }
-      
+
       setStatus('success');
       reset();
       setTimeout(() => setStatus('idle'), 3000);
     } catch (error) {
-      console.error("Failed to send email", error);
+      console.error('Failed to send message', error);
       setStatus('idle');
-      alert("Failed to send message. Please check the console.");
+      alert('Could not send your message. Please try again or email us directly.');
     }
   };
 
@@ -65,31 +67,40 @@ const ContactForm = () => {
         
         <form ref={formRef} onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div>
+            <label htmlFor="name" className="sr-only">Your Name</label>
             <input 
+              id="name"
               {...register('name')}
-              placeholder="Your Name" 
+              placeholder="Your Name"
+              aria-label="Full name"
               className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm text-gray-900 shadow-sm"
             />
-            {errors.name && <p className="text-red-500 text-[10px] mt-2 uppercase font-bold tracking-widest pl-4">{errors.name.message}</p>}
+            {errors.name && <p className="text-red-500 text-[10px] mt-2 uppercase font-bold tracking-widest pl-4" role="alert">{errors.name.message}</p>}
           </div>
           
           <div>
+            <label htmlFor="email" className="sr-only">Email Address</label>
             <input 
+              id="email"
               {...register('email')}
-              placeholder="Email Address" 
+              placeholder="Email Address"
+              aria-label="Email address"
               className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm text-gray-900 shadow-sm"
             />
-            {errors.email && <p className="text-red-500 text-[10px] mt-2 uppercase font-bold tracking-widest pl-4">{errors.email.message}</p>}
+            {errors.email && <p className="text-red-500 text-[10px] mt-2 uppercase font-bold tracking-widest pl-4" role="alert">{errors.email.message}</p>}
           </div>
           
           <div>
+            <label htmlFor="message" className="sr-only">Your Message</label>
             <textarea 
+              id="message"
               {...register('message')}
-              placeholder="Your Message..." 
+              placeholder="Your Message..."
+              aria-label="Message content"
               rows={4}
               className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:border-violet-400 focus:bg-white focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm text-gray-900 resize-none shadow-sm"
             />
-            {errors.message && <p className="text-red-500 text-[10px] mt-2 uppercase font-bold tracking-widest pl-4">{errors.message.message}</p>}
+            {errors.message && <p className="text-red-500 text-[10px] mt-2 uppercase font-bold tracking-widest pl-4" role="alert">{errors.message.message}</p>}
           </div>
 
           <button 

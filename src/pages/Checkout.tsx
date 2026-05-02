@@ -8,7 +8,8 @@ import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CheckCircle2, Copy, ExternalLink, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 const checkoutSchema = z.object({
   firstName: z.string().min(2, "First name is required"),
@@ -27,6 +28,8 @@ const Checkout = () => {
   const { items, getCartTotal, clearCart } = useCartStore();
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const { register, handleSubmit, formState: { errors } } = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema)
@@ -45,16 +48,15 @@ const Checkout = () => {
     }
 
     const options = {
-      key: 'rzp_test_YOUR_KEY_HERE', // NOTE: Replace with your actual Razorpay Key ID
-      amount: getCartTotal() * 100, // Amount in paise
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_DEFAULT',
+      amount: Math.round(getCartTotal() * 100), // paise, integer
       currency: 'INR',
       name: 'SD Studios',
       description: 'Premium 3D Printed Gear',
       image: 'https://via.placeholder.com/150', // Replace with your logo URL
       handler: async function (response: any) {
-        // Payment successful callback
         try {
-          await addDoc(collection(db, 'orders'), {
+          const docRef = await addDoc(collection(db, 'orders'), {
             customerName: `${data.firstName} ${data.lastName}`,
             email: data.email,
             phone: data.phone,
@@ -67,9 +69,9 @@ const Checkout = () => {
             createdAt: serverTimestamp()
           });
           
+          setOrderId(docRef.id);
+          setIsSuccess(true);
           clearCart();
-          alert('Payment Successful! Your order has been placed.');
-          navigate('/');
         } catch (err) {
           console.error("Error saving order:", err);
           alert('Payment succeeded but failed to save order. Please contact support.');
@@ -95,107 +97,180 @@ const Checkout = () => {
   };
 
   return (
-    <div className="pt-32 px-6 md:px-16 min-h-screen">
+    <div className="pt-32 px-6 md:px-16 min-h-screen relative overflow-hidden bg-white">
       <Helmet>
         <title>Checkout | SD Studios</title>
       </Helmet>
       
-      <div className="max-w-7xl mx-auto mb-16">
-        <h1 className="text-5xl md:text-7xl font-black mb-4">SECURE <span className="text-brand-cyan">CHECKOUT</span></h1>
+      {/* Background Playful Blobs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[10%] right-[-5%] w-[40%] h-[40%] bg-violet-50 rounded-full blur-[120px] opacity-60 animate-pulse" />
+        <div className="absolute bottom-[10%] left-[-5%] w-[40%] h-[40%] bg-pink-50 rounded-full blur-[120px] opacity-60 animate-pulse" />
       </div>
 
-      <div className="max-w-7xl mx-auto grid lg:grid-cols-[1fr_400px] gap-12 pb-32">
-        <div className="space-y-8">
-          <div className="glass p-8 rounded-3xl border border-white/10">
-            <h2 className="text-xl font-heading tracking-widest uppercase mb-6">Shipping Details</h2>
-            <form id="checkout-form" onSubmit={handleSubmit(processPayment)} className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <input {...register('firstName')} placeholder="First Name" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand-cyan transition-colors font-light" />
-                  {errors.firstName && <p className="text-red-400 text-xs mt-1">{errors.firstName.message}</p>}
-                </div>
-                <div>
-                  <input {...register('lastName')} placeholder="Last Name" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand-cyan transition-colors font-light" />
-                  {errors.lastName && <p className="text-red-400 text-xs mt-1">{errors.lastName.message}</p>}
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <input {...register('email')} type="email" placeholder="Email Address" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand-cyan transition-colors font-light" />
-                  {errors.email && <p className="text-red-400 text-xs mt-1">{errors.email.message}</p>}
-                </div>
-                <div>
-                  <input {...register('phone')} type="tel" placeholder="Phone Number" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand-cyan transition-colors font-light" />
-                  {errors.phone && <p className="text-red-400 text-xs mt-1">{errors.phone.message}</p>}
-                </div>
-              </div>
-              <div>
-                <input {...register('address')} placeholder="Full Address (Street, Apartment, etc.)" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand-cyan transition-colors font-light" />
-                {errors.address && <p className="text-red-400 text-xs mt-1">{errors.address.message}</p>}
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <input {...register('city')} placeholder="City" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand-cyan transition-colors font-light" />
-                  {errors.city && <p className="text-red-400 text-xs mt-1">{errors.city.message}</p>}
-                </div>
-                <div>
-                  <input {...register('pincode')} placeholder="PIN Code" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand-cyan transition-colors font-light" />
-                  {errors.pincode && <p className="text-red-400 text-xs mt-1">{errors.pincode.message}</p>}
-                </div>
-              </div>
-              <div>
-                <textarea {...register('customNotes')} placeholder="Order Notes or Customization Requests (Optional)" rows={3} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 outline-none focus:border-brand-cyan transition-colors font-light resize-none" />
-              </div>
-            </form>
-          </div>
-          
-          <div className="glass p-8 rounded-3xl border border-white/10">
-             <h2 className="text-xl font-heading tracking-widest uppercase mb-6">Payment</h2>
-             <div className="bg-white/5 border border-brand-cyan/50 rounded-xl p-6 flex items-center gap-4 cursor-pointer">
-                <div className="w-4 h-4 rounded-full border-2 border-brand-cyan bg-brand-cyan flex items-center justify-center shadow-[0_0_10px_rgba(163,198,34,0.5)]">
-                  <div className="w-2 h-2 rounded-full bg-black" />
-                </div>
-                <span className="font-bold tracking-widest uppercase text-sm">Pay Online (Razorpay)</span>
-             </div>
-          </div>
-        </div>
+      <AnimatePresence mode="wait">
+        {isSuccess ? (
+          <motion.div 
+            key="success"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-2xl mx-auto py-20 text-center relative z-10"
+          >
+            <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-10 shadow-2xl shadow-green-200">
+               <CheckCircle2 size={48} />
+            </div>
+            <h2 className="text-5xl font-black text-gray-900 tracking-tighter mb-6 uppercase">Order Secured!</h2>
+            <p className="text-gray-500 font-medium mb-12 leading-relaxed">
+              Your payment was successful and your gear is now in the manufacturing queue. <br/> 
+              We've sent a confirmation to your email.
+            </p>
+            
+            <div className="bg-gray-50 rounded-[2.5rem] p-10 mb-12 border border-gray-100 text-left">
+               <div className="mb-8">
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-2">Order Reference</p>
+                 <div className="flex items-center justify-between bg-white border border-gray-100 p-5 rounded-2xl">
+                    <p className="text-xl font-black text-violet-600 tracking-wider">#{orderId?.toUpperCase()}</p>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(orderId || '');
+                        alert('Order ID copied!');
+                      }}
+                      className="p-3 hover:bg-gray-50 rounded-xl transition-colors text-gray-400 hover:text-violet-600"
+                    >
+                      <Copy size={20} />
+                    </button>
+                 </div>
+               </div>
 
-        <div>
-          <div className="glass p-8 rounded-3xl border border-white/10 sticky top-32">
-            <h2 className="text-xl font-heading tracking-widest uppercase mb-6">Order Summary</h2>
-            <div className="space-y-4 mb-8">
-              {items.map(item => (
-                <div key={item.id} className="flex items-center justify-between text-sm">
-                  <span className="text-white/70 font-light line-clamp-1 flex-1 pr-4">{item.quantity}x {item.title}</span>
-                  <span className="font-bold">₹{parseInt(item.price.replace(/\D/g, '')) * item.quantity}</span>
-                </div>
-              ))}
-            </div>
-            <div className="border-t border-white/10 pt-6 space-y-4">
-               <div className="flex justify-between text-sm text-white/50">
-                 <span>Subtotal</span>
-                 <span>₹{getCartTotal()}</span>
-               </div>
-               <div className="flex justify-between text-sm text-white/50">
-                 <span>Shipping</span>
-                 <span>Free</span>
-               </div>
-               <div className="flex justify-between text-xl font-black pt-4 border-t border-white/10 text-brand-cyan">
-                 <span>Total</span>
-                 <span>₹{getCartTotal()}</span>
+               <div>
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-4 text-center">Next Step</p>
+                 <button 
+                   type="button"
+                   onClick={() => navigate(`/track?order=${encodeURIComponent(orderId || '')}`)}
+                   className="w-full py-6 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 hover:bg-violet-600 transition-all shadow-xl shadow-violet-600/10"
+                 >
+                   Track Manufacturing <ExternalLink size={14} />
+                 </button>
                </div>
             </div>
+
             <button 
-              form="checkout-form"
-              type="submit"
-              disabled={isProcessing || items.length === 0}
-              className="w-full bg-brand-cyan text-black font-black py-4 rounded-xl flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-all uppercase tracking-widest text-sm mt-8 shadow-[0_0_30px_rgba(163,198,34,0.2)] disabled:opacity-50 disabled:hover:scale-100"
+              onClick={() => navigate('/shop')}
+              className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 hover:text-violet-600 transition-colors"
             >
-              {isProcessing ? <Loader2 className="animate-spin" size={20} /> : "Place Order"}
+              Continue Browsing
             </button>
-          </div>
-        </div>
-      </div>
+          </motion.div>
+        ) : (
+          <motion.div 
+            key="checkout"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="max-w-7xl mx-auto relative z-10"
+          >
+            <div className="mb-20">
+              <div className="flex items-center gap-2 mb-4">
+                 <Sparkles size={16} className="text-violet-500" />
+                 <span className="text-violet-600 font-black text-[10px] uppercase tracking-[0.4em]">Secure Checkout</span>
+              </div>
+              <h1 className="text-6xl md:text-8xl font-black tracking-tighter text-gray-900 leading-[0.85]">
+                Finalize <br/> <span className="text-transparent bg-clip-text bg-linear-to-r from-violet-600 to-pink-500 italic">the Mission.</span>
+              </h1>
+            </div>
+
+            <div className="grid lg:grid-cols-[1fr_400px] gap-12 pb-32">
+              <div className="space-y-12">
+                <div className="space-y-6">
+                   <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">1</span>
+                    Shipping Details
+                  </h3>
+                  <form id="checkout-form" onSubmit={handleSubmit(processPayment)} className="grid md:grid-cols-2 gap-6 p-10 bg-gray-50 rounded-[3rem] border border-gray-100">
+                    <div className="space-y-4">
+                      <div>
+                        <input {...register('firstName')} placeholder="First Name" className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium" />
+                        {errors.firstName && <p className="text-red-500 text-[10px] mt-2 font-bold uppercase pl-2">{errors.firstName.message}</p>}
+                      </div>
+                      <div>
+                        <input {...register('lastName')} placeholder="Last Name" className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium" />
+                        {errors.lastName && <p className="text-red-500 text-[10px] mt-2 font-bold uppercase pl-2">{errors.lastName.message}</p>}
+                      </div>
+                      <div>
+                        <input {...register('email')} type="email" placeholder="Email Address" className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium" />
+                        {errors.email && <p className="text-red-500 text-[10px] mt-2 font-bold uppercase pl-2">{errors.email.message}</p>}
+                      </div>
+                      <div>
+                        <input {...register('phone')} type="tel" placeholder="Phone Number" className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium" />
+                        {errors.phone && <p className="text-red-500 text-[10px] mt-2 font-bold uppercase pl-2">{errors.phone.message}</p>}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <input {...register('address')} placeholder="Full Address" className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium" />
+                      <div className="grid grid-cols-2 gap-4">
+                        <input {...register('city')} placeholder="City" className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium" />
+                        <input {...register('pincode')} placeholder="PIN Code" className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium" />
+                      </div>
+                      <textarea {...register('customNotes')} placeholder="Order Notes (Optional)" rows={3} className="w-full bg-white border border-gray-100 rounded-2xl px-6 py-4 outline-none focus:border-violet-400 transition-colors text-sm font-medium resize-none" />
+                    </div>
+                  </form>
+                </div>
+                
+                <div className="space-y-6">
+                   <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">2</span>
+                    Payment
+                  </h3>
+                   <div className="p-8 bg-violet-600 rounded-[2.5rem] flex items-center gap-6 shadow-2xl shadow-violet-200 group cursor-pointer">
+                      <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-violet-600">
+                        <CheckCircle2 size={24} />
+                      </div>
+                      <div>
+                        <span className="block font-black uppercase text-sm text-white tracking-widest">Pay Online</span>
+                        <span className="text-xs text-violet-200 font-bold uppercase tracking-widest">Secured by Razorpay</span>
+                      </div>
+                   </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="bg-gray-900 rounded-[3rem] p-10 text-white sticky top-32 shadow-2xl">
+                  <h4 className="text-violet-400 font-black text-[10px] uppercase tracking-[0.3em] mb-8">Order Summary</h4>
+                  <div className="space-y-6 mb-10">
+                    {items.map(item => {
+                      const unit = parseInt(String(item.price).replace(/\D/g, ''), 10);
+                      const line = (Number.isFinite(unit) ? unit : 0) * item.quantity;
+                      return (
+                      <div key={item.id} className="flex items-center justify-between text-[11px] font-bold uppercase tracking-widest">
+                        <span className="text-gray-400 line-clamp-1 flex-1 pr-4">{item.quantity}x {item.title}</span>
+                        <span className="text-white italic">₹{line}</span>
+                      </div>
+                    );})}
+                  </div>
+                  <div className="border-t border-white/10 pt-8 space-y-4 mb-10">
+                     <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-500">
+                       <span>Subtotal</span>
+                       <span>₹{getCartTotal()}</span>
+                     </div>
+                     <div className="flex justify-between text-2xl font-black pt-4 border-t border-white/10">
+                       <span className="text-gray-400">Total</span>
+                       <span className="text-white italic">₹{getCartTotal()}</span>
+                     </div>
+                  </div>
+                  <button 
+                    form="checkout-form"
+                    type="submit"
+                    disabled={isProcessing || items.length === 0}
+                    className="w-full bg-violet-600 text-white font-black py-6 rounded-3xl flex items-center justify-center gap-4 hover:bg-violet-500 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-violet-600/20 disabled:opacity-50"
+                  >
+                    {isProcessing ? <Loader2 className="animate-spin" size={20} /> : "Finalize Order"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

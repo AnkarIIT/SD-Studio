@@ -8,10 +8,10 @@ interface AuthState {
   logout: () => void;
 }
 
-// Simple Static Credentials
+// Simple Static Credentials - Load from environment variables
 const ADMIN_CREDENTIALS = {
-  username: 'ADMIN',
-  password: 'SD_LABS_2026'
+  username: import.meta.env.VITE_ADMIN_USERNAME || 'ADMIN',
+  password: import.meta.env.VITE_ADMIN_PASSWORD || ''
 };
 
 export const useAuthStore = create<AuthState>()(

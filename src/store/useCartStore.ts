@@ -57,7 +57,11 @@ export const useCartStore = create<CartState>()(
       toggleCart: () => set((state) => ({ isOpen: !state.isOpen })),
       getCartTotal: () => {
         const { items } = get();
-        return items.reduce((total, item) => total + parseInt(item.price.replace(/\D/g, '')) * item.quantity, 0);
+        return items.reduce((total, item) => {
+          const n = parseInt(String(item.price).replace(/\D/g, ''), 10);
+          const line = (Number.isFinite(n) ? n : 0) * item.quantity;
+          return total + line;
+        }, 0);
       },
     }),
     {

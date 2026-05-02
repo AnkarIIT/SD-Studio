@@ -2,9 +2,11 @@ import { Helmet } from 'react-helmet-async';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, UploadCloud, Sparkles, Box, Droplets, Zap, CheckCircle2 } from 'lucide-react';
+import { Loader2, UploadCloud, Sparkles, Box, Droplets, Zap, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Variants } from 'motion/react';
+import { db } from '../lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const requestSchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -18,25 +20,109 @@ type RequestFormData = z.infer<typeof requestSchema>;
 const RequestModel = () => {
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>('idle');
   const [selectedMaterial, setSelectedMaterial] = useState('PLA');
-  const [selectedInfill, setSelectedInfill] = useState('20%');
   const [file, setFile] = useState<File | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [quoteResults, setQuoteResults] = useState<{ weight: number, price: number } | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
   
+  // LAB COST CONFIGURATION - Change these to adjust your pricing!
+  const LAB_CONFIG = {
+    materialDensity: { PLA: 1.24, PETG: 1.27, TPU: 1.21 },
+    infillFactor: 0.4, // 20% infill + shells
+    costPerGram: 2.5,  // Cost of plastic + electricity
+    laborFee: 150,     // Base setup fee
+    profitMargin: 2.1   // 1.0 (base) + 1.1 (110% profit)
+  };
+
+  const calculateSTLVolume = async (file: File): Promise<number> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const buffer = e.target?.result as ArrayBuffer;
+        const view = new DataView(buffer);
+        if (buffer.byteLength < 84) return resolve(0);
+        
+        try {
+          const facetCount = view.getUint32(80, true);
+          let totalVolume = 0;
+          for (let i = 0; i < Math.min(facetCount, 100000); i++) { // Limit for browser performance
+            const offset = 84 + i * 50;
+            const v1 = { x: view.getFloat32(offset + 12, true), y: view.getFloat32(offset + 16, true), z: view.getFloat32(offset + 20, true) };
+            const v2 = { x: view.getFloat32(offset + 24, true), y: view.getFloat32(offset + 28, true), z: view.getFloat32(offset + 32, true) };
+            const v3 = { x: view.getFloat32(offset + 36, true), y: view.getFloat32(offset + 40, true), z: view.getFloat32(offset + 44, true) };
+            totalVolume += (1.0/6.0) * (
+              -v3.x * v2.y * v1.z + v2.x * v3.y * v1.z + v3.x * v1.y * v2.z - 
+              v1.x * v3.y * v2.z - v2.x * v1.y * v3.z + v1.x * v2.y * v3.z
+            );
+          }
+          resolve(Math.abs(totalVolume) / 1000);
+        } catch (e) { resolve(0); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFile = e.target.files?.[0] || null;
+    setFile(uploadedFile);
+    if (uploadedFile && uploadedFile.name.toLowerCase().endsWith('.stl')) {
+      setAnalyzing(true);
+      const volume = await calculateSTLVolume(uploadedFile);
+      const density = LAB_CONFIG.materialDensity[selectedMaterial as keyof typeof LAB_CONFIG.materialDensity] || 1.24;
+      
+      const estimatedWeight = Math.max(1, volume * density * LAB_CONFIG.infillFactor);
+      const makingCost = (estimatedWeight * LAB_CONFIG.costPerGram) + LAB_CONFIG.laborFee;
+      const finalPrice = Math.ceil(makingCost * LAB_CONFIG.profitMargin);
+      
+      setQuoteResults({ weight: Math.round(estimatedWeight), price: finalPrice });
+      setAnalyzing(false);
+    } else {
+      setQuoteResults(null);
+    }
+  };
+
   const { register, handleSubmit, formState: { errors }, reset } = useForm<RequestFormData>({
     resolver: zodResolver(requestSchema)
   });
 
   const onSubmit = async (data: RequestFormData) => {
+    if (!file) {
+      alert("Please upload a 3D model first!");
+      return;
+    }
+    
     setStatus('submitting');
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setStatus('success');
-    reset();
-    setFile(null);
-    setTimeout(() => setStatus('idle'), 5000);
+    try {
+      // Save order to Firestore
+      const orderRef = await addDoc(collection(db, 'orders'), {
+        ...data,
+        customerName: data.name,
+        type: 'custom',
+        fileName: file.name,
+        material: selectedMaterial,
+        estimatedWeight: quoteResults?.weight || 0,
+        estimatedPrice: quoteResults?.price || 'Custom Quote Needed',
+        total: typeof quoteResults?.price === 'number' ? quoteResults.price : 0,
+        items: [{ title: `Custom print: ${file.name}`, quantity: 1, price: String(quoteResults?.price ?? '') }],
+        status: 'Received',
+        createdAt: serverTimestamp()
+      });
+      
+      setOrderId(orderRef.id);
+      setStatus('success');
+      reset();
+      setFile(null);
+      setQuoteResults(null);
+    } catch (err) {
+      console.error("Order failed", err);
+      setStatus('idle');
+      alert("Failed to submit order. Please check connection.");
+    }
   };
 
   const materials = [
     { id: 'PLA', name: 'Standard PLA', icon: Box, desc: 'Tough & Vibrant', price: '₹' },
-    { id: 'Resin', name: 'High Detail Resin', icon: Droplets, desc: 'Smooth & Precise', price: '₹₹' },
+    { id: 'PETG', name: 'High Performance PETG', icon: ShieldCheck, desc: 'Smooth & Precise', price: '₹₹' },
     { id: 'TPU', name: 'Flexible TPU', icon: Zap, desc: 'Rubber-like Strength', price: '₹₹' }
   ];
 
@@ -63,156 +149,188 @@ const RequestModel = () => {
           </h1>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-12 items-start">
-          {/* Left Column: Configuration */}
-          <div className="lg:col-span-2 space-y-12">
-            
-            {/* 1. File Upload Dropzone */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
-                <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">1</span>
-                Drop Your Design
-              </h3>
-              <div 
-                className={`relative border-4 border-dashed rounded-[3rem] p-12 text-center transition-all duration-500 group
-                  ${file ? 'border-green-400 bg-green-50' : 'border-gray-100 hover:border-violet-300 hover:bg-violet-50'}`}
-              >
-                <input 
-                  type="file" 
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
-                  className="absolute inset-0 opacity-0 cursor-pointer z-20" 
-                />
-                <div className="relative z-10">
-                  <div className={`w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center transition-all duration-500
-                    ${file ? 'bg-green-500 text-white rotate-0' : 'bg-white text-violet-500 shadow-xl group-hover:scale-110 group-hover:rotate-6'}`}>
-                    <UploadCloud size={32} />
-                  </div>
-                  {file ? (
-                    <div>
-                      <p className="text-gray-900 font-bold uppercase tracking-tight mb-2">{file.name}</p>
-                      <p className="text-green-600 text-[10px] font-black uppercase tracking-widest">Ready to Print</p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-gray-900 font-black uppercase tracking-tight mb-2 text-lg">Select STL or OBJ File</p>
-                      <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
-                        Drag and drop your 3D model here <br/> or click to browse
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* 2. Material Selection */}
-            <div className="space-y-6">
-              <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
-                <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">2</span>
-                Choose Material
-              </h3>
-              <div className="grid md:grid-cols-3 gap-4">
-                {materials.map((mat) => (
-                  <button
-                    key={mat.id}
-                    onClick={() => setSelectedMaterial(mat.id)}
-                    className={`p-8 rounded-[2rem] border-2 text-left transition-all duration-500 group relative overflow-hidden
-                      ${selectedMaterial === mat.id ? 'border-violet-600 bg-violet-600 text-white shadow-2xl' : 'border-gray-100 bg-white hover:border-violet-200 shadow-sm'}`}
-                  >
-                    <mat.icon size={24} className={`mb-6 ${selectedMaterial === mat.id ? 'text-white' : 'text-violet-500'}`} />
-                    <h4 className="font-black text-sm uppercase tracking-tight mb-1">{mat.name}</h4>
-                    <p className={`text-[10px] font-bold uppercase tracking-widest ${selectedMaterial === mat.id ? 'text-violet-200' : 'text-gray-400'}`}>{mat.desc}</p>
-                    <div className="absolute top-6 right-6">
-                       <span className={`text-[10px] font-black ${selectedMaterial === mat.id ? 'text-violet-200' : 'text-violet-500'}`}>{mat.price}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 3. The Form */}
-            <div className="space-y-6">
-               <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
-                <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">3</span>
-                Lab Coordinates
-              </h3>
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <input {...register('name')} placeholder="Full Name" className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm" />
-                  <input {...register('email')} placeholder="Email Address" className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm" />
-                </div>
-                <input {...register('phone')} placeholder="Phone Number" className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm" />
-                <textarea {...register('description')} rows={4} placeholder="Tell us about your project..." className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm resize-none" />
-                
-                <AnimatePresence>
-                  {status === 'success' && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0 }}
-                      className="bg-green-500 text-white p-6 rounded-3xl flex items-center gap-4 shadow-xl"
-                    >
-                      <CheckCircle2 size={24} />
-                      <div>
-                        <p className="font-black uppercase tracking-tight text-sm">Magic in Progress!</p>
-                        <p className="text-[10px] font-bold uppercase tracking-widest opacity-90">We've received your coordinates and file.</p>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </form>
-            </div>
-          </div>
-
-          {/* Right Column: Sticky Quote Card */}
-          <div className="lg:sticky lg:top-32">
+        <AnimatePresence mode="wait">
+          {status === 'success' ? (
             <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-gray-900 rounded-[3rem] p-10 text-white shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] relative overflow-hidden"
+              key="success"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="max-w-2xl mx-auto py-20 text-center"
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600 rounded-full blur-[80px] opacity-40 -translate-y-1/2 translate-x-1/2" />
+              <div className="w-24 h-24 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto mb-10 shadow-2xl shadow-green-200">
+                 <CheckCircle2 size={48} />
+              </div>
+              <h2 className="text-5xl font-black text-gray-900 tracking-tighter mb-6 uppercase">Order Received!</h2>
+              <p className="text-gray-500 font-medium mb-12 leading-relaxed">
+                Your custom 3D model is now in the manufacturing queue. <br/> 
+                Our lab technicians will review the geometry and reach out via email.
+              </p>
               
-              <div className="relative z-10">
-                <h4 className="text-violet-400 font-black text-[10px] uppercase tracking-[0.3em] mb-8">Live Quote Engine</h4>
+              <div className="bg-gray-50 rounded-3xl p-8 mb-12 border border-gray-100">
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400 mb-2">Order Reference</p>
+                 <p className="text-xl font-black text-violet-600 tracking-wider">#{orderId?.slice(-8).toUpperCase()}</p>
+              </div>
+
+              <button 
+                onClick={() => setStatus('idle')}
+                className="px-10 py-5 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-violet-600 transition-all shadow-xl"
+              >
+                Back to Lab
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div 
+              key="form"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="grid lg:grid-cols-3 gap-12 items-start"
+            >
+              {/* Left Column: Configuration */}
+              <div className="lg:col-span-2 space-y-12">
                 
-                <div className="space-y-8 mb-12">
-                  <div className="flex justify-between items-center pb-6 border-b border-white/10">
-                    <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Base Material</span>
-                    <span className="font-black uppercase text-sm tracking-tight">{selectedMaterial}</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-6 border-b border-white/10">
-                    <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Production Priority</span>
-                    <span className="font-black uppercase text-sm tracking-tight">Standard</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Estimated Magic</span>
-                    <span className="text-3xl font-black tracking-tighter">₹Custom</span>
+                {/* 1. File Upload Dropzone */}
+                <div className="space-y-6">
+                  <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">1</span>
+                    Drop Your Design
+                  </h3>
+                  <div 
+                    className={`relative border-4 border-dashed rounded-[3rem] p-12 text-center transition-all duration-500 group
+                      ${file ? 'border-green-400 bg-green-50' : 'border-gray-100 hover:border-violet-300 hover:bg-violet-50'}`}
+                  >
+                    <input 
+                      type="file" 
+                      accept=".stl"
+                      onChange={handleFileChange}
+                      className="absolute inset-0 opacity-0 cursor-pointer z-20" 
+                    />
+                    <div className="relative z-10">
+                      <div className={`w-20 h-20 rounded-3xl mx-auto mb-6 flex items-center justify-center transition-all duration-500
+                        ${file ? 'bg-green-500 text-white rotate-0' : 'bg-white text-violet-500 shadow-xl group-hover:scale-110 group-hover:rotate-6'}`}>
+                        {analyzing ? <Loader2 className="animate-spin" size={32} /> : <UploadCloud size={32} />}
+                      </div>
+                      {file ? (
+                        <div>
+                          <p className="text-gray-900 font-bold uppercase tracking-tight mb-2">{file.name}</p>
+                          <p className="text-green-600 text-[10px] font-black uppercase tracking-widest">
+                            {analyzing ? "Analyzing Geometry..." : "Lab Scan Complete"}
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-gray-900 font-black uppercase tracking-tight mb-2 text-lg">Select STL File</p>
+                          <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+                            Drag and drop your 3D model here <br/> or click to browse
+                          </p>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <p className="text-gray-500 text-[9px] uppercase tracking-widest font-bold leading-relaxed mb-10 italic">
-                  *Final quote will be sent to your email after technical review of the 3D model.
-                </p>
+                {/* 2. Material Selection */}
+                <div className="space-y-6">
+                  <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">2</span>
+                    Choose Material
+                  </h3>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    {materials.map((mat) => (
+                      <button
+                        key={mat.id}
+                        onClick={() => setSelectedMaterial(mat.id)}
+                        className={`p-8 rounded-[2rem] border-2 text-left transition-all duration-500 group relative overflow-hidden
+                          ${selectedMaterial === mat.id ? 'border-violet-600 bg-violet-600 text-white shadow-2xl' : 'border-gray-100 bg-white hover:border-violet-200 shadow-sm'}`}
+                      >
+                        <mat.icon size={24} className={`mb-6 ${selectedMaterial === mat.id ? 'text-white' : 'text-violet-500'}`} />
+                        <h4 className="font-black text-sm uppercase tracking-tight mb-1">{mat.name}</h4>
+                        <p className={`text-[10px] font-bold uppercase tracking-widest ${selectedMaterial === mat.id ? 'text-violet-200' : 'text-gray-400'}`}>{mat.desc}</p>
+                        <div className="absolute top-6 right-6">
+                           <span className={`text-[10px] font-black ${selectedMaterial === mat.id ? 'text-violet-200' : 'text-violet-500'}`}>{mat.price}</span>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-                <button 
-                  onClick={handleSubmit(onSubmit)}
-                  disabled={status === 'submitting'}
-                  className="w-full bg-violet-600 text-white font-black py-6 rounded-3xl flex items-center justify-center gap-4 hover:bg-violet-500 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-violet-600/20 disabled:opacity-50 group"
-                >
-                  {status === 'submitting' ? (
-                    <Loader2 className="animate-spin" size={20} />
-                  ) : (
-                    <>
-                      INITIATE PRODUCTION
-                      <Zap size={16} className="fill-current group-hover:scale-125 transition-transform" />
-                    </>
-                  )}
-                </button>
+                {/* 3. The Form */}
+                <div className="space-y-6">
+                   <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight flex items-center gap-3">
+                    <span className="w-8 h-8 rounded-full bg-violet-600 text-white flex items-center justify-center text-xs">3</span>
+                    Lab Coordinates
+                  </h3>
+                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <input {...register('name')} placeholder="Full Name" className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm" />
+                        {errors.name && <p className="text-red-500 text-[10px] mt-2 font-bold uppercase pl-4">{errors.name.message}</p>}
+                      </div>
+                      <div>
+                        <input {...register('email')} placeholder="Email Address" className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm" />
+                        {errors.email && <p className="text-red-500 text-[10px] mt-2 font-bold uppercase pl-4">{errors.email.message}</p>}
+                      </div>
+                    </div>
+                    <input {...register('phone')} placeholder="Phone Number" className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm" />
+                    <textarea {...register('description')} rows={4} placeholder="Tell us about your project..." className="w-full bg-gray-50 border border-gray-100 rounded-3xl px-8 py-5 outline-none focus:bg-white focus:border-violet-400 focus:ring-4 focus:ring-violet-50 transition-all font-medium text-sm resize-none" />
+                  </form>
+                </div>
               </div>
-            </motion.div>
-          </div>
 
-        </div>
+              {/* Right Column: Sticky Quote Card */}
+              <div className="lg:sticky lg:top-32">
+                <motion.div 
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="bg-gray-900 rounded-[3rem] p-10 text-white shadow-[0_50px_100px_-20px_rgba(0,0,0,0.3)] relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-violet-600 rounded-full blur-[80px] opacity-40 -translate-y-1/2 translate-x-1/2" />
+                  
+                  <div className="relative z-10">
+                    <h4 className="text-violet-400 font-black text-[10px] uppercase tracking-[0.3em] mb-8">Live Quote Engine</h4>
+                    
+                    <div className="space-y-8 mb-12">
+                      <div className="flex justify-between items-center pb-6 border-b border-white/10">
+                        <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Base Material</span>
+                        <span className="font-black uppercase text-sm tracking-tight">{selectedMaterial}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-6 border-b border-white/10">
+                        <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Est. Weight</span>
+                        <span className="font-black uppercase text-sm tracking-tight">{quoteResults ? `${quoteResults.weight}g` : '--'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Estimated Magic</span>
+                        <span className="text-3xl font-black tracking-tighter">
+                          {quoteResults ? `₹${quoteResults.price}` : '₹---'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-gray-500 text-[9px] uppercase tracking-widest font-bold leading-relaxed mb-10 italic">
+                      *Final quote will be sent to your email after technical review of the 3D model.
+                    </p>
+
+                    <button 
+                      onClick={handleSubmit(onSubmit)}
+                      disabled={status === 'submitting'}
+                      className="w-full bg-violet-600 text-white font-black py-6 rounded-3xl flex items-center justify-center gap-4 hover:bg-violet-500 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-violet-600/20 disabled:opacity-50 group"
+                    >
+                      {status === 'submitting' ? (
+                        <Loader2 className="animate-spin" size={20} />
+                      ) : (
+                        <>
+                          INITIATE PRODUCTION
+                          <Zap size={16} className="fill-current group-hover:scale-125 transition-transform" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </motion.div>
+              </div>
+
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

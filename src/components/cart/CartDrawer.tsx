@@ -1,10 +1,25 @@
 import { useCartStore } from '../../store/useCartStore';
 import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 const CartDrawer = () => {
   const { items, isOpen, toggleCart, removeItem, updateQuantity, getCartTotal } = useCartStore();
   const navigate = useNavigate();
+
+  // Handle Escape key to close cart
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        toggleCart();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }
+  }, [isOpen, toggleCart]);
 
   if (!isOpen) return null;
 

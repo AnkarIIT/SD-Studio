@@ -5,30 +5,23 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Loader2, Sparkles, Filter, Database } from 'lucide-react';
 import ProductCard from '../components/ui/ProductCard';
 import { motion, AnimatePresence } from 'motion/react';
+import { DEFAULT_SHOP_PRODUCTS, SHOP_CATEGORIES } from '../data/shopCatalog';
 
 const Shop = () => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState('All');
   const [isSeeding, setIsSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
 
-  const categories = ['All', 'Keychains', 'Anime', 'Home Lab', 'Tech Gear'];
+  const categories = [...SHOP_CATEGORIES];
 
   const seedProducts = async () => {
     setIsSeeding(true);
-    const initialProducts = [
-      { title: "Stealth NFC Keychain", price: "599", tag: "Tech Gear", image: "https://images.unsplash.com/photo-1582142839930-2233e73899d4?q=80&w=800&auto=format&fit=crop", color: "bg-gray-900" },
-      { title: "Anime Showcase Stand", price: "899", tag: "Anime", image: "https://images.unsplash.com/photo-1618336753974-aae8e04506aa?q=80&w=800&auto=format&fit=crop", color: "bg-rose-500" },
-      { title: "Articulated Magic Dragon", price: "1499", tag: "Anime", image: "https://images.unsplash.com/photo-1558655146-d09347e92766?q=80&w=800&auto=format&fit=crop", color: "bg-violet-500" },
-      { title: "Geometric Voronoi Vase", price: "2199", tag: "Home Lab", image: "https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=800&auto=format&fit=crop", color: "bg-pink-500" },
-      { title: "Cyberpunk Phone Stand", price: "799", tag: "Tech Gear", image: "https://images.unsplash.com/photo-1586771107445-d3ca888129ff?q=80&w=800&auto=format&fit=crop", color: "bg-indigo-500" },
-      { title: "Neon Cable Organizer", price: "449", tag: "Keychains", image: "https://images.unsplash.com/photo-1591488320449-011701bb6704?q=80&w=800&auto=format&fit=crop", color: "bg-orange-500" },
-      { title: "Minimalist Desk Lamp", price: "3499", tag: "Home Lab", image: "https://images.unsplash.com/photo-1534073828943-f801091bb18c?q=80&w=800&auto=format&fit=crop", color: "bg-cyan-500" },
-      { title: "Low-Poly Planter Trio", price: "1299", tag: "Home Lab", image: "https://images.unsplash.com/photo-1485955900006-10f4d324d411?q=80&w=800&auto=format&fit=crop", color: "bg-teal-500" }
-    ];
+    setSeedError(null);
 
     try {
-      for (const prod of initialProducts) {
+      for (const prod of DEFAULT_SHOP_PRODUCTS) {
         await addDoc(collection(db, 'products'), {
           ...prod,
           createdAt: serverTimestamp(),
@@ -36,31 +29,78 @@ const Shop = () => {
         });
       }
     } catch (err) {
-      console.error("Failed to seed shop", err);
+      console.error('Failed to seed shop', err);
+      setSeedError('Could not save catalog. Deploy updated Firestore rules and try again.');
     } finally {
       setIsSeeding(false);
     }
   };
 
   useEffect(() => {
+    console.log("Initializing Shop Listener...");
     const q = query(collection(db, 'products'));
+    
+    // Fallback if listener never fires (offline / misconfigured). Realtime updates are instant once connected.
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('Firestore shop listener slow; showing UI anyway');
+        setLoading(false);
+      }
+    }, 8000);
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      console.log(`Received snapshot with ${snapshot.size} products`);
       const prods: any[] = [];
       snapshot.forEach((doc) => {
         prods.push({ id: doc.id, ...doc.data() });
       });
       setProducts(prods);
       setLoading(false);
+      clearTimeout(timeoutId);
+
+      // Empty catalog: auto-upload (Firestore rules must allow product `create`).
+      const seedLock = 'sd-shop-seeding';
+      if (snapshot.size === 0 && !sessionStorage.getItem(seedLock)) {
+        sessionStorage.setItem(seedLock, '1');
+        setIsSeeding(true);
+        setSeedError(null);
+        void (async () => {
+          try {
+            for (const prod of DEFAULT_SHOP_PRODUCTS) {
+              await addDoc(collection(db, 'products'), {
+                ...prod,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+              });
+            }
+          } catch (e) {
+            console.error('Auto-seed failed', e);
+            setSeedError('Could not save catalog. Deploy updated firestore.rules (product create) or tap “Load catalog”.');
+          } finally {
+            sessionStorage.removeItem(seedLock);
+            setIsSeeding(false);
+          }
+        })();
+      }
     }, (error) => {
+      console.error("Firestore Shop Error:", error);
       handleFirestoreError(error, OperationType.LIST, 'products');
       setLoading(false);
+      clearTimeout(timeoutId);
     });
-    return () => unsubscribe();
+    
+    return () => {
+      unsubscribe();
+      clearTimeout(timeoutId);
+    };
   }, []);
 
-  const filteredProducts = activeCategory === 'All' 
-    ? products 
-    : products.filter(p => p.tag?.toLowerCase() === activeCategory.toLowerCase());
+  const filteredProducts =
+    activeCategory === 'All'
+      ? products
+      : products.filter((p) => p.tag?.toLowerCase() === activeCategory.toLowerCase());
+
+  const emptyCategoryOnly = products.length > 0 && filteredProducts.length === 0;
 
   return (
     <div className="pt-32 px-6 md:px-16 min-h-screen relative overflow-hidden bg-white">
@@ -101,16 +141,6 @@ const Shop = () => {
                </button>
              ))}
 
-             {products.length === 0 && !loading && (
-               <button
-                 onClick={seedProducts}
-                 disabled={isSeeding}
-                 className="ml-auto flex items-center gap-2 px-6 py-3 bg-violet-50 text-violet-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-violet-100 transition-all border border-violet-100"
-               >
-                 {isSeeding ? <Loader2 size={14} className="animate-spin" /> : <Database size={14} />}
-                 {isSeeding ? "Stocking Lab..." : "Stock the Lab"}
-               </button>
-             )}
           </div>
         </div>
 
@@ -136,15 +166,23 @@ const Shop = () => {
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="col-span-full flex flex-col items-center justify-center py-32 bg-gray-50 rounded-[3rem] border border-gray-100 relative overflow-hidden text-center"
+                className="col-span-full flex flex-col items-center justify-center py-32 bg-gray-50 rounded-[3rem] border border-gray-100 relative overflow-hidden text-center px-6"
               >
-                 <div className="relative z-10">
+                 <div className="relative z-10 max-w-md">
                    <div className="w-16 h-16 bg-white border border-gray-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl">
-                     <Loader2 className="text-violet-500" size={24} />
+                     {isSeeding ? (
+                       <Loader2 className="text-violet-500 animate-spin" size={24} />
+                     ) : (
+                       <Loader2 className="text-violet-500" size={24} />
+                     )}
                    </div>
-                   <h3 className="text-3xl font-black mb-3 text-gray-900 uppercase tracking-tight">Printing Soon</h3>
-                   <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest max-w-sm mx-auto leading-relaxed">
-                     This category is currently in the manufacturing phase. <br/> Check back shortly for the drop.
+                   <h3 className="text-3xl font-black mb-3 text-gray-900 uppercase tracking-tight">
+                     {emptyCategoryOnly ? 'Nothing in this category' : 'The Lab is Quiet'}
+                   </h3>
+                   <p className="text-gray-500 text-sm font-medium max-w-sm mx-auto leading-relaxed">
+                     {emptyCategoryOnly
+                       ? 'Try “All” or another filter — your latest drops might be in a different category.'
+                       : 'Our master craftsmen are currently tuning the machines. Check back soon for new gear!'}
                    </p>
                  </div>
               </motion.div>

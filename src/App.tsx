@@ -13,7 +13,7 @@ import CartDrawer from './components/cart/CartDrawer';
 import { MessageSquare, X } from 'lucide-react';
 import { HelmetProvider } from 'react-helmet-async';
 import { motion } from 'motion/react';
-
+import ErrorBoundary from './components/ErrorBoundary';
 import ChatAssistant from './components/ui/ChatAssistant';
 import { useSettingsStore, subscribeToSettings } from './store/useSettingsStore';
 
@@ -27,26 +27,42 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Handle Escape key to close chat
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isChatOpen) {
+        setIsChatOpen(false);
+      }
+    };
+
+    if (isChatOpen) {
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }
+  }, [isChatOpen]);
+
   return (
     <HelmetProvider>
-      <Routes>
-        <Route path="/admin" element={<AdminPanel />} />
-        <Route path="/shop" element={<><Navbar /><Shop /><Footer /></>} />
-        <Route path="/product/:id" element={<><Navbar /><ProductDetails /><Footer /></>} />
-        <Route path="/checkout" element={<><Navbar /><Checkout /><Footer /></>} />
-        <Route path="/request" element={<><Navbar /><RequestModel /><Footer /></>} />
-        <Route path="/track" element={<><Navbar /><TrackOrder /><Footer /></>} />
-        <Route path="/" element={
-          <div className="min-h-screen bg-brand-white text-brand-black scroll-smooth overflow-x-hidden flex flex-col">
-            <Navbar />
-            <div className="flex-1">
-              <Home />
+      <ErrorBoundary>
+        <Routes>
+          <Route path="/admin" element={<AdminPanel />} />
+          <Route path="/shop" element={<><Navbar /><Shop /><Footer /></>} />
+          <Route path="/product/:id" element={<><Navbar /><ProductDetails /><Footer /></>} />
+          <Route path="/checkout" element={<><Navbar /><Checkout /><Footer /></>} />
+          <Route path="/request" element={<><Navbar /><RequestModel /><Footer /></>} />
+          <Route path="/track" element={<><Navbar /><TrackOrder /><Footer /></>} />
+          <Route path="/" element={
+            <div className="min-h-screen bg-brand-white text-brand-black scroll-smooth overflow-x-hidden flex flex-col">
+              <Navbar />
+              <div className="flex-1">
+                <Home />
+              </div>
+              <Footer />
+              <div className="fixed inset-0 pointer-events-none -z-10 bg-white" />
             </div>
-            <Footer />
-            <div className="fixed inset-0 pointer-events-none -z-10 bg-white" />
-          </div>
-        } />
-      </Routes>
+          } />
+        </Routes>
+      </ErrorBoundary>
       
       {/* Global Chat Assistant Widget */}
       <ChatAssistant isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
@@ -60,8 +76,9 @@ export default function App() {
       >
         <button 
           onClick={() => setIsChatOpen(!isChatOpen)}
+          aria-label={isChatOpen ? "Close chat assistant" : "Open chat assistant"}
+          title={isChatOpen ? "Close chat (Esc)" : "Open chat"}
           className="bg-gray-900 text-white w-14 h-14 md:w-16 md:h-16 rounded-full flex items-center justify-center shadow-2xl hover:bg-black hover:scale-110 active:scale-95 transition-all group"
-          title="Chat with us"
         >
           {isChatOpen ? <X size={24} /> : <MessageSquare size={24} className="group-hover:rotate-12 transition-transform" />}
           {!isChatOpen && (

@@ -1,0 +1,135 @@
+// This is your Prisma schema file
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// PAYMENTS TABLE
+// ============================================
+model Payment {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  customerId        String
+  customerName      String
+  customerEmail     String
+  customerPhone     String?
+  
+  // Payment Details
+  amount            Float
+  currency          String    @default("INR")
+  paymentMethod     String    // "upi", "card", "bank_transfer", "cod"
+  paymentStatus     String    @default("pending") // "pending", "success", "failed", "refunded"
+  paymentReference  String?   // Transaction ID, UTR, etc
+  
+  // Order Info
+  itemCount         Int
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  completedAt       DateTime?
+  expiresAt         DateTime? // For auto-cleanup
+  
+  // Relationship
+  delivery          Delivery?
+  
+  // Index for queries
+  @@index([customerId])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+// ============================================
+// DELIVERIES TABLE
+// ============================================
+model Delivery {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  paymentId         String    @unique
+  
+  // Customer Info
+  customerName      String
+  customerPhone     String?
+  
+  // Delivery Address
+  street            String
+  city              String
+  state             String
+  pincode           String
+  
+  // Delivery Status
+  status            String    @default("pending") // "pending", "shipped", "in_transit", "delivered", "cancelled"
+  trackingNumber    String?
+  
+  // Delivery Dates
+  shippedAt         DateTime?
+  deliveredAt       DateTime?
+  estimatedDelivery DateTime?
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  expiresAt         DateTime? // For auto-cleanup
+  
+  // Relationship
+  payment           Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  
+  // Index for queries
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([expiresAt])
+}
+
+// ============================================
+// AUDIT LOG (Optional - track all changes)
+// ============================================
+model AuditLog {
+  id        String    @id @default(cuid())
+  entity    String    // "payment", "delivery"
+  entityId  String
+  action    String    // "created", "updated", "deleted"
+  changes   String?   // JSON string of what changed
+  createdAt DateTime  @default(now())
+  
+  @@index([entityId])
+  @@index([createdAt])
+}
+
+model Order {
+  id                String    @id @default(cuid())
+  orderId           String    @unique
+  customerId        String
+  customerName      String
+  customerEmail     String
+  customerPhone     String?
+  
+  // Order Details
+  items             String    // JSON array of items
+  subtotal          Float
+  tax               Float
+  shipping          Float
+  discount          Float
+  total             Float
+  
+  // Status
+  status            String    @default("pending") // "pending", "paid", "shipped", "delivered", "cancelled"
+  
+  // Timestamps
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  expiresAt         DateTime? // For auto-cleanup (30 days after completion)
+  
+  @@index([customerId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([expiresAt])
+}

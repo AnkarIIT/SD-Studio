@@ -1,0 +1,220 @@
+import { Product } from './types';
+
+export const PRODUCTS: Product[] = [
+  {
+    id: '1',
+    name: 'Voronoi Pillar Lamp',
+    description: 'A mathematical masterpiece. This lamp uses a Voronoi tessellation to cast intricate shadows across your room.',
+    price: 7499,
+    originalPrice: 8999,
+    category: 'Home Decor',
+    image: 'https://picsum.photos/seed/lamp/800/800',
+    stock: 12,
+    inStock: true,
+    rating: 4.5,
+    reviews: 23,
+    specs: {
+      material: 'Recycled PLA',
+      dimensions: '25cm x 10cm x 10cm',
+      printTime: '18 hours'
+    }
+  },
+  {
+    id: '2',
+    name: 'Architectural Planter Set',
+    description: 'Geometric trio of succulent pots inspired by brutalist architecture. Matte finish for a stone-like feel.',
+    price: 3799,
+    originalPrice: 4499,
+    category: 'Home Decor',
+    image: 'https://picsum.photos/seed/pots/800/800',
+    stock: 18,
+    inStock: true,
+    rating: 4.8,
+    reviews: 45,
+    specs: {
+      material: 'Matte Basalt PLA',
+      dimensions: 'Various (Small)',
+      printTime: '12 hours'
+    }
+  },
+  {
+    id: '3',
+    name: 'Articulated Void Drake',
+    description: 'A fully poseable 3D printed dragon. Printed in one piece with complex interlinking joints.',
+    price: 2899,
+    originalPrice: 3499,
+    category: 'Toys',
+    image: 'https://picsum.photos/seed/dragon/800/800',
+    stock: 8,
+    inStock: true,
+    rating: 4.6,
+    reviews: 34,
+    specs: {
+      material: 'Dual-tone Silk PLA',
+      dimensions: '45cm length',
+      printTime: '14 hours'
+    }
+  },
+  {
+    id: '4',
+    name: 'Cyberdeck Enclosure',
+    description: 'Custom textured case for your mechanical keyboard projects. Features cable channels and modular mounting points.',
+    price: 9999,
+    originalPrice: 11999,
+    category: 'Tech',
+    image: 'https://picsum.photos/seed/keyboard/800/800',
+    stock: 5,
+    inStock: true,
+    rating: 4.7,
+    reviews: 19,
+    specs: {
+      material: 'CF-ASA (Carbon Fiber)',
+      dimensions: '320mm x 110mm',
+      printTime: '24 hours'
+    }
+  },
+  {
+    id: '5',
+    name: 'Low Poly Bust Sculpture',
+    description: 'A modern take on classical sculpture. Perfect for a bookshelf or minimalist desk setup.',
+    price: 4599,
+    originalPrice: 5499,
+    category: 'Art',
+    image: 'https://picsum.photos/seed/bust/800/800',
+    stock: 15,
+    inStock: true,
+    rating: 4.4,
+    reviews: 28,
+    specs: {
+      material: 'White Marble PLA',
+      dimensions: '20cm height',
+      printTime: '10 hours'
+    }
+  },
+  {
+    id: '6',
+    name: 'Modular Cable Organizer',
+    description: 'Keep your workspace clean with this magnetic modular system for all your charging cables.',
+    price: 2199,
+    originalPrice: 2799,
+    category: 'Tech',
+    image: 'https://picsum.photos/seed/cables/800/800',
+    stock: 25,
+    inStock: true,
+    rating: 4.9,
+    reviews: 67,
+    specs: {
+      material: 'PET-G',
+      dimensions: 'Modular',
+      printTime: '4 hours'
+    }
+  },
+  {
+    id: '7',
+    name: 'Geometric Desk Organizer',
+    description: 'Sleek and modern desk organizer with multiple compartments for pens, papers, and accessories.',
+    price: 1899,
+    originalPrice: 2499,
+    category: 'Tech',
+    image: 'https://picsum.photos/seed/desk/800/800',
+    stock: 20,
+    inStock: true,
+    rating: 4.5,
+    reviews: 41,
+    specs: {
+      material: 'PETG',
+      dimensions: '25cm x 15cm x 10cm',
+      printTime: '8 hours'
+    }
+  },
+  {
+    id: '8',
+    name: 'Abstract Wall Art Panel',
+    description: 'Three-dimensional abstract art piece that adds depth and character to any wall.',
+    price: 3499,
+    originalPrice: 4299,
+    category: 'Art',
+    image: 'https://picsum.photos/seed/art/800/800',
+    stock: 10,
+    inStock: true,
+    rating: 4.7,
+    reviews: 15,
+    specs: {
+      material: 'Matte Black ABS',
+      dimensions: '60cm x 40cm',
+      printTime: '20 hours'
+    }
+  },
+  {
+    id: '9',
+    name: 'Plant Pot Stand Set',
+    description: 'Elegant plant pot stand collection with minimalist design for indoor plants.',
+    price: 2499,
+    originalPrice: 3199,
+    category: 'Home Decor',
+    image: 'https://picsum.photos/seed/plants/800/800',
+    stock: 16,
+    inStock: true,
+    rating: 4.6,
+    reviews: 38,
+    specs: {
+      material: 'Natural Wood Composite',
+      dimensions: 'Various',
+      printTime: '6 hours'
+    }
+  },
+  {
+    id: '10',
+    name: 'Gaming Controller Stand',
+    description: 'Premium stand for displaying or organizing gaming controllers and accessories.',
+    price: 1599,
+    originalPrice: 2099,
+    category: 'Tech',
+    image: 'https://picsum.photos/seed/gaming/800/800',
+    stock: 22,
+    inStock: true,
+    rating: 4.8,
+    reviews: 52,
+    specs: {
+      material: 'TPU Flexible',
+      dimensions: '20cm x 15cm x 8cm',
+      printTime: '5 hours'
+    }
+  },
+  {
+    id: '11',
+    name: 'Minimalist Pen Holder',
+    description: 'Simple yet elegant pen holder perfect for office or study desk.',
+    price: 799,
+    originalPrice: 1199,
+    category: 'Tech',
+    image: 'https://picsum.photos/seed/pen/800/800',
+    stock: 30,
+    inStock: true,
+    rating: 4.3,
+    reviews: 24,
+    specs: {
+      material: 'PLA',
+      dimensions: '10cm diameter x 12cm height',
+      printTime: '2 hours'
+    }
+  },
+  {
+    id: '12',
+    name: 'Articulated Robot Toy',
+    description: 'Fully articulated robot figure with movable joints and magnetic connections.',
+    price: 4299,
+    originalPrice: 5299,
+    category: 'Toys',
+    image: 'https://picsum.photos/seed/robot/800/800',
+    stock: 9,
+    inStock: true,
+    rating: 4.9,
+    reviews: 31,
+    specs: {
+      material: 'Multi-color ABS',
+      dimensions: '30cm height',
+      printTime: '16 hours'
+    }
+  }
+];

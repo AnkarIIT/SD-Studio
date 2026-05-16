@@ -83,7 +83,6 @@ model Delivery {
   payment           Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   
   // Index for queries
-  @@index([customerId])
   @@index([status])
   @@index([createdAt])
   @@index([expiresAt])

@@ -210,6 +210,114 @@ const emailTemplates = {
       </html>
     `,
   }),
+  orderShipped: (data: {
+    customerName: string;
+    orderId: string;
+    trackingNumber?: string;
+    carrier?: string;
+    estimatedDelivery?: string;
+  }) => ({
+    subject: `🚚 Order Shipped - Order #${data.orderId}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #f97316, #dc2626); color: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+            .content { background: #f9fafb; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+            .details { margin: 15px 0; }
+            .label { font-weight: bold; color: #666; }
+            .value { color: #1f2937; margin-left: 10px; }
+            .footer { text-align: center; color: #999; font-size: 12px; }
+            .shipped-badge { color: #f97316; font-size: 18px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h2><span class="shipped-badge">🚚</span> Your order is on the way!</h2>
+              <p>Hi ${data.customerName},</p>
+            </div>
+
+            <div class="content">
+              <h3>Shipment Details</h3>
+              <div class="details">
+                <span class="label">Order ID:</span>
+                <span class="value">#${data.orderId}</span>
+              </div>
+              <div class="details">
+                <span class="label">Carrier:</span>
+                <span class="value">${data.carrier || 'TBD'}</span>
+              </div>
+              <div class="details">
+                <span class="label">Tracking Number:</span>
+                <span class="value">${data.trackingNumber || 'N/A'}</span>
+              </div>
+              <div class="details">
+                <span class="label">Estimated Delivery:</span>
+                <span class="value">${data.estimatedDelivery || 'N/A'}</span>
+              </div>
+
+              <hr style="margin: 20px 0; border: none; border-top: 1px solid #ddd;">
+
+              <p>If you have any questions or need help tracking your package, reply to this email and we'll assist you.</p>
+
+            </div>
+
+            <div class="footer">
+              <p>LayerBound 3D Store | India's Premium 3D Printed Products</p>
+              <p>📧 support@layerbound.in | 📱 +91-XXXXXXXXXX</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  }),
+
+  orderConfirmed: (data: { customerName: string; orderId: string; estimatedProduction?: string; }) => ({
+    subject: `✅ Order Confirmed - Order #${data.orderId}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #06b6d4, #0891b2); color: white; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+            .content { background: #f9fafb; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+            .details { margin: 15px 0; }
+            .label { font-weight: bold; color: #666; }
+            .value { color: #1f2937; margin-left: 10px; }
+            .footer { text-align: center; color: #999; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h2>✅ Order Confirmed</h2>
+              <p>Hi ${data.customerName},</p>
+            </div>
+
+            <div class="content">
+              <h3>Order #${data.orderId} has been confirmed</h3>
+              <p>We received your order and it's queued for production.</p>
+              <div class="details">
+                <span class="label">Estimated Production Time:</span>
+                <span class="value">${data.estimatedProduction || 'Typically 2-5 days'}</span>
+              </div>
+            </div>
+
+            <div class="footer">
+              <p>LayerBound 3D Store | India's Premium 3D Printed Products</p>
+              <p>📧 support@layerbound.in | 📱 +91-XXXXXXXXXX</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  }),
 };
 
 // ============================================
@@ -304,6 +412,64 @@ app.post('/api/notifications/payment-success', async (req: Request, res: Respons
 });
 
 /**
+ * Send Order Confirmed Email & SMS
+ * POST /api/notifications/order-confirmed
+ */
+app.post('/api/notifications/order-confirmed', async (req: Request, res: Response) => {
+  try {
+    const { email, phone, customerName, orderId, estimatedProduction } = req.body;
+
+    if (!email || !customerName || !orderId) {
+      return res.status(400).json({ success: false, error: 'Missing required fields: email, customerName, orderId' });
+    }
+
+    let emailSent = false;
+    let smsSent = false;
+    const results: string[] = [];
+
+    if (email) {
+      try {
+        const template = emailTemplates.orderConfirmed({ customerName, orderId, estimatedProduction });
+
+        await emailTransporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: template.subject,
+          html: template.html,
+        });
+
+        emailSent = true;
+        results.push('✅ Order confirmed email sent');
+      } catch (error: any) {
+        results.push(`❌ Email failed: ${error.message}`);
+      }
+    }
+
+    if (phone && twilioClient) {
+      try {
+        const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+
+        await twilioClient.messages.create({
+          body: `Hi ${customerName}, your order #${orderId} has been confirmed and queued for production.`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: formattedPhone,
+        });
+
+        smsSent = true;
+        results.push('✅ Order confirmed SMS sent');
+      } catch (error: any) {
+        results.push(`❌ SMS failed: ${error.message}`);
+      }
+    }
+
+    res.json({ success: emailSent || smsSent, emailSent, smsSent, results, message: 'Order confirmed notification sent' });
+  } catch (error: any) {
+    console.error('Error sending order confirmed notification:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
  * Send Delivery Confirmation Email & SMS
  * POST /api/notifications/delivery-confirmation
  */
@@ -387,6 +553,64 @@ app.post('/api/notifications/delivery-confirmation', async (req: Request, res: R
       success: false,
       error: error.message,
     });
+  }
+});
+
+/**
+ * Send Order Shipped Email & SMS
+ * POST /api/notifications/order-shipped
+ */
+app.post('/api/notifications/order-shipped', async (req: Request, res: Response) => {
+  try {
+    const { email, phone, customerName, orderId, trackingNumber, carrier, estimatedDelivery } = req.body;
+
+    if (!email || !customerName || !orderId) {
+      return res.status(400).json({ success: false, error: 'Missing required fields: email, customerName, orderId' });
+    }
+
+    let emailSent = false;
+    let smsSent = false;
+    const results: string[] = [];
+
+    if (email) {
+      try {
+        const template = emailTemplates.orderShipped({ customerName, orderId, trackingNumber, carrier, estimatedDelivery });
+
+        await emailTransporter.sendMail({
+          from: process.env.EMAIL_USER,
+          to: email,
+          subject: template.subject,
+          html: template.html,
+        });
+
+        emailSent = true;
+        results.push('✅ Order shipped email sent');
+      } catch (error: any) {
+        results.push(`❌ Email failed: ${error.message}`);
+      }
+    }
+
+    if (phone && twilioClient) {
+      try {
+        const formattedPhone = phone.startsWith('+') ? phone : `+91${phone}`;
+
+        await twilioClient.messages.create({
+          body: `Good news! Your order #${orderId} has shipped. Tracking: ${trackingNumber || 'N/A'}`,
+          from: process.env.TWILIO_PHONE_NUMBER,
+          to: formattedPhone,
+        });
+
+        smsSent = true;
+        results.push('✅ Order shipped SMS sent');
+      } catch (error: any) {
+        results.push(`❌ SMS failed: ${error.message}`);
+      }
+    }
+
+    res.json({ success: emailSent || smsSent, emailSent, smsSent, results, message: 'Order shipped notification sent' });
+  } catch (error: any) {
+    console.error('Error sending order shipped notification:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

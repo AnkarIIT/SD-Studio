@@ -13,10 +13,16 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.5,
     reviews: 23,
+    madeToOrder: true,
+    productionTime: 'Ships within 3-5 days',
+    durabilityRating: 'display-only',
     specs: {
       material: 'Recycled PLA',
       dimensions: '25cm x 10cm x 10cm',
-      printTime: '18 hours'
+      printTime: '18 hours',
+      infill: '15%',
+      layerHeight: '0.2mm',
+      supportRequired: true
     }
   },
   {
@@ -31,10 +37,16 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.8,
     reviews: 45,
+    madeToOrder: true,
+    productionTime: 'Ships within 2-4 days',
+    durabilityRating: 'light-use',
     specs: {
       material: 'Matte Basalt PLA',
       dimensions: 'Various (Small)',
-      printTime: '12 hours'
+      printTime: '12 hours',
+      infill: '20%',
+      layerHeight: '0.2mm',
+      supportRequired: false
     }
   },
   {
@@ -49,10 +61,16 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.6,
     reviews: 34,
+    madeToOrder: true,
+    productionTime: 'Ships within 3-5 days',
+    durabilityRating: 'moderate-use',
     specs: {
       material: 'Dual-tone Silk PLA',
       dimensions: '45cm length',
-      printTime: '14 hours'
+      printTime: '14 hours',
+      infill: '10%',
+      layerHeight: '0.15mm',
+      supportRequired: true
     }
   },
   {
@@ -67,10 +85,16 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.7,
     reviews: 19,
+    madeToOrder: true,
+    productionTime: 'Ships within 5-7 days',
+    durabilityRating: 'heavy-use',
     specs: {
       material: 'CF-ASA (Carbon Fiber)',
       dimensions: '320mm x 110mm',
-      printTime: '24 hours'
+      printTime: '24 hours',
+      infill: '25%',
+      layerHeight: '0.2mm',
+      supportRequired: true
     }
   },
   {
@@ -85,10 +109,16 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.4,
     reviews: 28,
+    madeToOrder: true,
+    productionTime: 'Ships within 2-3 days',
+    durabilityRating: 'display-only',
     specs: {
       material: 'White Marble PLA',
       dimensions: '20cm height',
-      printTime: '10 hours'
+      printTime: '10 hours',
+      infill: '12%',
+      layerHeight: '0.15mm',
+      supportRequired: true
     }
   },
   {
@@ -103,10 +133,16 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.9,
     reviews: 67,
+    madeToOrder: true,
+    productionTime: 'Ships within 1-2 days',
+    durabilityRating: 'moderate-use',
     specs: {
       material: 'PET-G',
       dimensions: 'Modular',
-      printTime: '4 hours'
+      printTime: '4 hours',
+      infill: '20%',
+      layerHeight: '0.2mm',
+      supportRequired: false
     }
   },
   {
@@ -121,10 +157,16 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.5,
     reviews: 41,
+    madeToOrder: true,
+    productionTime: 'Ships within 1-2 days',
+    durabilityRating: 'light-use',
     specs: {
       material: 'PETG',
       dimensions: '25cm x 15cm x 10cm',
-      printTime: '8 hours'
+      printTime: '8 hours',
+      infill: '18%',
+      layerHeight: '0.2mm',
+      supportRequired: false
     }
   },
   {
@@ -139,10 +181,16 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.7,
     reviews: 15,
+    madeToOrder: true,
+    productionTime: 'Ships within 4-6 days',
+    durabilityRating: 'display-only',
     specs: {
       material: 'Matte Black ABS',
       dimensions: '60cm x 40cm',
-      printTime: '20 hours'
+      printTime: '20 hours',
+      infill: '15%',
+      layerHeight: '0.2mm',
+      supportRequired: true
     }
   },
   {
@@ -157,6 +205,9 @@ export const PRODUCTS: Product[] = [
     inStock: true,
     rating: 4.6,
     reviews: 38,
+    madeToOrder: true,
+    productionTime: 'Ships within 2-4 days',
+    durabilityRating: 'light-use',
     specs: {
       material: 'Natural Wood Composite',
       dimensions: 'Various',

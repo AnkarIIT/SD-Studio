@@ -76,10 +76,15 @@ export default function ProductCard({ product, onAddToCart, onOpenDetail }: Prod
         </div>
 
         {/* Category Label */}
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 left-4 flex flex-col gap-2">
           <span className="text-[9px] font-black uppercase tracking-[0.2em] bg-zinc-900 dark:bg-zinc-800 text-white px-3 py-1">
             {product.category}
           </span>
+          {product.madeToOrder !== false && (
+            <span className="text-[8px] font-black uppercase tracking-[0.15em] bg-primary/80 text-white px-2 py-0.5 w-fit">
+              ⚡ Made to Order
+            </span>
+          )}
         </div>
 
         {/* Discount Badge */}

@@ -15,7 +15,15 @@ export interface Product {
     material: string;
     dimensions: string;
     printTime: string;
+    infill?: string;
+    layerHeight?: string;
+    supportRequired?: boolean;
   };
+  durabilityRating?: 'display-only' | 'light-use' | 'moderate-use' | 'heavy-use';
+  madeToOrder?: boolean;
+  productionTime?: string;
+  modelUrl?: string;
+  materialSwatches?: string[];
   createdAt?: string;
 }
 

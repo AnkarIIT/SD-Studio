@@ -1,9 +1,0 @@
-# Normalize line endings to avoid LF/CRLF warnings
-* text=auto
-# Ensure TypeScript and source files use LF in the repo
-*.ts text eol=lf
-*.tsx text eol=lf
-*.js text eol=lf
-*.jsx text eol=lf
-*.json text eol=lf
-*.md text eol=lf

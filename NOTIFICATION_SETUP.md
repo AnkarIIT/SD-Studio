@@ -1,6 +1,23 @@
-# 📧 Email & SMS Notification Setup Guide
+# Email & SMS Notification Setup Guide
 
-## 🚀 Quick Start
+## Quick start (development)
+
+1. Copy `.env.local.example` → `.env.local`
+2. Add Gmail App Password (`EMAIL_USER`, `EMAIL_PASSWORD`) — see Phase 0 below
+3. Leave `VITE_NOTIFICATION_API_URL` **empty** (Vite proxies `/api` → port 5001)
+4. Run **one command**:
+```bash
+npm run dev:all
+```
+5. Open **http://localhost:3000** only (not 3001)
+6. Verify: http://localhost:3000/api/health → `"emailConfigured": true`
+7. Dev bell icon → Notification Dashboard → turn off Demo mode if Gmail is configured
+
+Architecture: React (3000) + separate Express notification API (5001), like Razorpay keys staying on the server.
+
+---
+
+## Legacy: run servers separately
 
 ### 1. Start Notification Server
 ```bash
@@ -70,14 +87,31 @@ SENDGRID_API_KEY=SG.xxxxxxxxxxxx
 
 ---
 
-## 📱 SMS Setup (Twilio)
+## 📱 SMS Setup
 
-### Step 1: Create Twilio Account
+### Option 1: Free SMS (Email-to-SMS Gateways) - RECOMMENDED
+This method uses your existing email setup to send SMS for free via Indian carrier email-to-SMS gateways. No additional costs!
+
+**How it works:**
+- Sends an email to the carrier's SMS gateway (e.g., 9876543210@airtelap.com)
+- The carrier forwards it as an SMS to the phone number
+- Works with Airtel, Jio, VI, BSNL
+- **Requires only email to be configured** (no Twilio needed)
+
+**Setup:**
+1. Just configure your email (Step 1-4 in Email Setup above)
+2. SMS will automatically use email-to-SMS gateways if Twilio isn't configured
+3. Test with the same payment success endpoint - just add a phone number!
+
+### Option 2: Twilio (Paid)
+For more reliable SMS delivery, use Twilio:
+
+#### Step 1: Create Twilio Account
 1. Sign up at https://www.twilio.com/console
 2. Verify your phone number
 3. Go to **Console Dashboard**
 
-### Step 2: Get API Credentials
+#### Step 2: Get API Credentials
 1. Copy your **Account SID** from dashboard
 2. Copy your **Auth Token** (click to reveal)
 3. Get a **Twilio Phone Number**:
@@ -85,7 +119,7 @@ SENDGRID_API_KEY=SG.xxxxxxxxxxxx
    - Choose country (India)
    - Confirm the number
 
-### Step 3: Add to `.env.local`
+#### Step 3: Add to `.env.local`
 ```bash
 # Twilio SMS Configuration
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
@@ -93,7 +127,7 @@ TWILIO_AUTH_TOKEN=your_auth_token_here
 TWILIO_PHONE_NUMBER=+1xxxxxxxxxx  (your Twilio number)
 ```
 
-### Step 4: Test SMS
+#### Step 4: Test SMS
 ```bash
 curl -X POST http://localhost:5001/api/notifications/payment-success \
   -H "Content-Type: application/json" \
@@ -133,7 +167,7 @@ Create `.env.local` file in project root:
 # ============================================
 # FRONTEND
 # ============================================
-VITE_NOTIFICATION_API_URL=http://localhost:5001
+VITE_NOTIFICATION_API_URL=
 
 # ============================================
 # NOTIFICATION SERVER
@@ -296,7 +330,7 @@ SMS Service (Twilio/AWS SNS)
 ### Environment-Specific Configuration
 ```bash
 # Development
-VITE_NOTIFICATION_API_URL=http://localhost:5001
+VITE_NOTIFICATION_API_URL=
 
 # Staging
 VITE_NOTIFICATION_API_URL=https://staging-notification.herokuapp.com

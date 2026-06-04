@@ -1,49 +1,49 @@
-import { Moon, Sun } from 'lucide-react';
+import { Monitor, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import {
+  cycleThemePreference,
+  getStoredThemePreference,
+  initTheme,
+  resolveTheme,
+  type ThemePreference,
+} from '../utils/theme';
+
+const LABELS: Record<ThemePreference, string> = {
+  system: 'Theme: match system',
+  light: 'Theme: light mode',
+  dark: 'Theme: dark mode',
+};
 
 export default function ThemeToggle() {
-  const [isDark, setIsDark] = useState(false);
+  const [preference, setPreference] = useState<ThemePreference>('system');
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    initTheme();
+    setPreference(getStoredThemePreference());
     setMounted(true);
-    // Check localStorage and system preference
-    const storedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    if (storedTheme) {
-      setIsDark(storedTheme === 'dark');
-    } else if (prefersDark) {
-      setIsDark(true);
-    }
   }, []);
 
-  useEffect(() => {
-    if (!mounted) return;
-    
-    const html = document.documentElement;
-    if (isDark) {
-      html.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      html.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark, mounted]);
+  if (!mounted) {
+    return <span className="inline-block w-9 h-9" aria-hidden />;
+  }
 
-  if (!mounted) return null;
+  const resolved = resolveTheme(preference);
+
+  const Icon =
+    preference === 'system' ? Monitor : preference === 'dark' ? Moon : Sun;
 
   return (
     <button
-      onClick={() => setIsDark(!isDark)}
-      className="p-2 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
-      aria-label="Toggle theme"
-      title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+      type="button"
+      onClick={() => setPreference(cycleThemePreference())}
+      className="p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity relative"
+      aria-label={LABELS[preference]}
+      title={`${LABELS[preference]} (${resolved === 'dark' ? 'dark' : 'light'} now) — click to change`}
     >
-      {isDark ? (
-        <Sun className="w-5 h-5 text-yellow-500" />
-      ) : (
-        <Moon className="w-5 h-5 text-zinc-600" />
+      <Icon className="w-5 h-5" strokeWidth={1.5} />
+      {preference === 'system' && (
+        <span className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-[#111] dark:bg-white" />
       )}
     </button>
   );

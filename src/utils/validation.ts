@@ -5,12 +5,22 @@ import { z } from 'zod';
  */
 export const emailSchema = z.string().email('Invalid email address');
 
+/** Strip +91, spaces, leading 0 — keep last 10 digits */
+export function normalizeIndianPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  if (digits.length >= 12 && digits.startsWith('91')) return digits.slice(-10);
+  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
+  return digits.slice(-10);
+}
+
 /**
- * Phone number validation (Indian format)
+ * Phone number validation (Indian format; accepts +91 / spaces)
  */
 export const phoneSchema = z
   .string()
-  .regex(/^[6-9]\d{9}$/, 'Invalid Indian phone number');
+  .min(1, 'Phone number is required')
+  .transform(normalizeIndianPhone)
+  .pipe(z.string().regex(/^[6-9]\d{9}$/, 'Invalid Indian phone number (10 digits, starts 6–9)'));
 
 /**
  * Address validation schema

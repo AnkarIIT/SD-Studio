@@ -17,7 +17,7 @@ interface ProductModalProps {
 
 export default function ProductModal({ product, onClose, onAddToCart }: ProductModalProps) {
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState<'specs' | 'model'>('specs');
+  const [activeTab, setActiveTab] = useState<'specs' | 'model'>(product?.modelUrl ? 'model' : 'specs');
   const { isInWishlist, addItem, removeItem } = useWishlistStore();
   
   if (!product) return null;
@@ -86,7 +86,7 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
                 referrerPolicy="no-referrer"
               />
               {discount > 0 && (
-                <div className="absolute top-4 right-4 bg-primary text-white px-4 py-2 font-bold rounded">
+                <div className="absolute top-4 right-4 bg-[#111] text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wider">
                   -{discount}% OFF
                 </div>
               )}
@@ -115,7 +115,7 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
               <motion.span 
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                className="text-[11px] font-black uppercase tracking-[0.4em] text-primary block mb-2"
+                className="do-eyebrow block mb-2"
               >
                 // Lab Series: {product.category}
               </motion.span>
@@ -123,7 +123,7 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
                 initial={{ y: 40, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.1 }}
-                className="text-3xl md:text-4xl font-serif font-black uppercase tracking-tighter italic leading-[0.9] text-zinc-900 dark:text-zinc-100"
+                className="text-2xl md:text-3xl font-semibold uppercase tracking-tight text-[#111] dark:text-zinc-100"
               >
                 {product.name}
               </motion.h2>
@@ -132,7 +132,7 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
             {/* Price and Description */}
             <div className="mb-6">
               <div className="flex items-baseline gap-3 mb-3">
-                <div className="text-3xl font-serif font-black tracking-tighter text-zinc-900 dark:text-zinc-100 italic">
+                <div className="text-2xl font-semibold text-[#111] dark:text-zinc-100">
                   {formatPrice(product.price)}
                 </div>
                 {product.originalPrice && (
@@ -187,7 +187,7 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
                 onClick={() => setActiveTab('specs')}
                 className={`px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-all ${
                   activeTab === 'specs'
-                    ? 'text-primary border-b-2 border-primary -mb-[2px]'
+                    ? 'text-[#111] dark:text-white border-b-2 border-[#111] dark:border-white -mb-[2px]'
                     : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
@@ -197,7 +197,7 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
                 onClick={() => setActiveTab('model')}
                 className={`px-4 py-2 text-sm font-semibold uppercase tracking-wider transition-all ${
                   activeTab === 'model'
-                    ? 'text-primary border-b-2 border-primary -mb-[2px]'
+                    ? 'text-[#111] dark:text-white border-b-2 border-[#111] dark:border-white -mb-[2px]'
                     : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
                 }`}
               >
@@ -236,7 +236,7 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
               <button 
                 onClick={handleAddToCart}
                 disabled={product.stock === 0}
-                className="w-full py-3 bg-primary text-white font-black uppercase tracking-widest text-xs hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 rounded"
+                className="do-btn-primary w-full py-3 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
               >
                 Add To Cart <Check className="w-4 h-4" />
               </button>

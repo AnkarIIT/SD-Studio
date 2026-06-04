@@ -37,9 +37,12 @@ interface OrderStore {
 
 interface FilterStore {
   selectedCategory: string;
+  selectedCollection: string;
   searchQuery: string;
   sortBy: 'newest' | 'price-asc' | 'price-desc' | 'popular';
   setCategory: (category: string) => void;
+  setCollectionFilter: (collection: string) => void;
+  clearCollectionFilter: () => void;
   setSearchQuery: (query: string) => void;
   setSortBy: (sort: 'newest' | 'price-asc' | 'price-desc' | 'popular') => void;
   reset: () => void;
@@ -175,14 +178,20 @@ export const useOrderStore = create<OrderStore>()(
  */
 export const useFilterStore = create<FilterStore>()((set) => ({
   selectedCategory: 'All Categories',
+  selectedCollection: '',
   searchQuery: '',
   sortBy: 'newest',
-  setCategory: (category) => set({ selectedCategory: category }),
+  setCategory: (category) =>
+    set({ selectedCategory: category, selectedCollection: '' }),
+  setCollectionFilter: (collection) =>
+    set({ selectedCollection: collection, selectedCategory: 'All Categories' }),
+  clearCollectionFilter: () => set({ selectedCollection: '' }),
   setSearchQuery: (query) => set({ searchQuery: query }),
   setSortBy: (sort) => set({ sortBy: sort }),
   reset: () => {
     set({
       selectedCategory: 'All Categories',
+      selectedCollection: '',
       searchQuery: '',
       sortBy: 'newest',
     });

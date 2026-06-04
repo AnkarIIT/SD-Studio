@@ -1,5 +1,8 @@
 import { Product } from './types';
 
+const IMG = (id: string, w = 800) =>
+  `https://images.unsplash.com/${id}?w=${w}&q=80&fit=crop`;
+
 export const PRODUCTS: Product[] = [
   {
     id: '1',
@@ -8,12 +11,14 @@ export const PRODUCTS: Product[] = [
     price: 7499,
     originalPrice: 8999,
     category: 'Home Decor',
-    image: 'https://picsum.photos/seed/lamp/800/800',
+    image: IMG('photo-1513506003901-1e6a229e2d15'),
     stock: 12,
     inStock: true,
     rating: 4.5,
     reviews: 23,
     madeToOrder: true,
+    badge: 'Bestseller',
+    collection: 'Home & Living',
     productionTime: 'Ships within 3-5 days',
     durabilityRating: 'display-only',
     specs: {
@@ -22,8 +27,8 @@ export const PRODUCTS: Product[] = [
       printTime: '18 hours',
       infill: '15%',
       layerHeight: '0.2mm',
-      supportRequired: true
-    }
+      supportRequired: true,
+    },
   },
   {
     id: '2',
@@ -32,12 +37,13 @@ export const PRODUCTS: Product[] = [
     price: 3799,
     originalPrice: 4499,
     category: 'Home Decor',
-    image: 'https://picsum.photos/seed/pots/800/800',
+    image: IMG('photo-1416879595882-4983d811b766'),
     stock: 18,
     inStock: true,
     rating: 4.8,
     reviews: 45,
     madeToOrder: true,
+    collection: 'Home & Living',
     productionTime: 'Ships within 2-4 days',
     durabilityRating: 'light-use',
     specs: {
@@ -46,8 +52,8 @@ export const PRODUCTS: Product[] = [
       printTime: '12 hours',
       infill: '20%',
       layerHeight: '0.2mm',
-      supportRequired: false
-    }
+      supportRequired: false,
+    },
   },
   {
     id: '3',
@@ -56,22 +62,25 @@ export const PRODUCTS: Product[] = [
     price: 2899,
     originalPrice: 3499,
     category: 'Toys',
-    image: 'https://picsum.photos/seed/dragon/800/800',
+    image: IMG('photo-1558618666-fcd25c85cd64'),
     stock: 8,
     inStock: true,
     rating: 4.6,
     reviews: 34,
     madeToOrder: true,
+    badge: 'Fan favourite',
+    collection: 'Sci-Fi & Gaming',
     productionTime: 'Ships within 3-5 days',
     durabilityRating: 'moderate-use',
+    modelUrl: 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
     specs: {
       material: 'Dual-tone Silk PLA',
       dimensions: '45cm length',
       printTime: '14 hours',
       infill: '10%',
       layerHeight: '0.15mm',
-      supportRequired: true
-    }
+      supportRequired: true,
+    },
   },
   {
     id: '4',
@@ -80,12 +89,13 @@ export const PRODUCTS: Product[] = [
     price: 9999,
     originalPrice: 11999,
     category: 'Tech',
-    image: 'https://picsum.photos/seed/keyboard/800/800',
+    image: IMG('photo-1587825140708-dfaf72ae4b04'),
     stock: 5,
     inStock: true,
     rating: 4.7,
     reviews: 19,
     madeToOrder: true,
+    collection: 'Workspace Essentials',
     productionTime: 'Ships within 5-7 days',
     durabilityRating: 'heavy-use',
     specs: {
@@ -94,8 +104,8 @@ export const PRODUCTS: Product[] = [
       printTime: '24 hours',
       infill: '25%',
       layerHeight: '0.2mm',
-      supportRequired: true
-    }
+      supportRequired: true,
+    },
   },
   {
     id: '5',
@@ -104,12 +114,13 @@ export const PRODUCTS: Product[] = [
     price: 4599,
     originalPrice: 5499,
     category: 'Art',
-    image: 'https://picsum.photos/seed/bust/800/800',
+    image: IMG('photo-1579783902614-a3fb3927b6a5'),
     stock: 15,
     inStock: true,
     rating: 4.4,
     reviews: 28,
     madeToOrder: true,
+    collection: 'Art & Sculptures',
     productionTime: 'Ships within 2-3 days',
     durabilityRating: 'display-only',
     specs: {
@@ -118,8 +129,8 @@ export const PRODUCTS: Product[] = [
       printTime: '10 hours',
       infill: '12%',
       layerHeight: '0.15mm',
-      supportRequired: true
-    }
+      supportRequired: true,
+    },
   },
   {
     id: '6',
@@ -128,12 +139,14 @@ export const PRODUCTS: Product[] = [
     price: 2199,
     originalPrice: 2799,
     category: 'Tech',
-    image: 'https://picsum.photos/seed/cables/800/800',
+    image: IMG('photo-1593642532400-2682810df593'),
     stock: 25,
     inStock: true,
     rating: 4.9,
     reviews: 67,
     madeToOrder: true,
+    badge: 'Top rated',
+    collection: 'Workspace Essentials',
     productionTime: 'Ships within 1-2 days',
     durabilityRating: 'moderate-use',
     specs: {
@@ -142,8 +155,8 @@ export const PRODUCTS: Product[] = [
       printTime: '4 hours',
       infill: '20%',
       layerHeight: '0.2mm',
-      supportRequired: false
-    }
+      supportRequired: false,
+    },
   },
   {
     id: '7',
@@ -152,12 +165,13 @@ export const PRODUCTS: Product[] = [
     price: 1899,
     originalPrice: 2499,
     category: 'Tech',
-    image: 'https://picsum.photos/seed/desk/800/800',
+    image: IMG('photo-1527864550417-7fd91fc51a46'),
     stock: 20,
     inStock: true,
     rating: 4.5,
     reviews: 41,
     madeToOrder: true,
+    collection: 'Minimal Desk',
     productionTime: 'Ships within 1-2 days',
     durabilityRating: 'light-use',
     specs: {
@@ -166,8 +180,8 @@ export const PRODUCTS: Product[] = [
       printTime: '8 hours',
       infill: '18%',
       layerHeight: '0.2mm',
-      supportRequired: false
-    }
+      supportRequired: false,
+    },
   },
   {
     id: '8',
@@ -176,12 +190,14 @@ export const PRODUCTS: Product[] = [
     price: 3499,
     originalPrice: 4299,
     category: 'Art',
-    image: 'https://picsum.photos/seed/art/800/800',
+    image: IMG('photo-1578321272176-4c6c9b8e9b8e'),
     stock: 10,
     inStock: true,
     rating: 4.7,
     reviews: 15,
     madeToOrder: true,
+    isNew: true,
+    collection: 'Art & Sculptures',
     productionTime: 'Ships within 4-6 days',
     durabilityRating: 'display-only',
     specs: {
@@ -190,8 +206,8 @@ export const PRODUCTS: Product[] = [
       printTime: '20 hours',
       infill: '15%',
       layerHeight: '0.2mm',
-      supportRequired: true
-    }
+      supportRequired: true,
+    },
   },
   {
     id: '9',
@@ -200,19 +216,20 @@ export const PRODUCTS: Product[] = [
     price: 2499,
     originalPrice: 3199,
     category: 'Home Decor',
-    image: 'https://picsum.photos/seed/plants/800/800',
+    image: IMG('photo-1616046229475-27645f380b4a'),
     stock: 16,
     inStock: true,
     rating: 4.6,
     reviews: 38,
     madeToOrder: true,
+    collection: 'Home & Living',
     productionTime: 'Ships within 2-4 days',
     durabilityRating: 'light-use',
     specs: {
       material: 'Natural Wood Composite',
       dimensions: 'Various',
-      printTime: '6 hours'
-    }
+      printTime: '6 hours',
+    },
   },
   {
     id: '10',
@@ -221,16 +238,18 @@ export const PRODUCTS: Product[] = [
     price: 1599,
     originalPrice: 2099,
     category: 'Tech',
-    image: 'https://picsum.photos/seed/gaming/800/800',
+    image: IMG('photo-1612815158517-8e26880a870f'),
     stock: 22,
     inStock: true,
     rating: 4.8,
     reviews: 52,
+    isNew: true,
+    collection: 'Sci-Fi & Gaming',
     specs: {
       material: 'TPU Flexible',
       dimensions: '20cm x 15cm x 8cm',
-      printTime: '5 hours'
-    }
+      printTime: '5 hours',
+    },
   },
   {
     id: '11',
@@ -239,16 +258,17 @@ export const PRODUCTS: Product[] = [
     price: 799,
     originalPrice: 1199,
     category: 'Tech',
-    image: 'https://picsum.photos/seed/pen/800/800',
+    image: IMG('photo-1497366216548-37526070297c'),
     stock: 30,
     inStock: true,
     rating: 4.3,
     reviews: 24,
+    collection: 'Minimal Desk',
     specs: {
       material: 'PLA',
       dimensions: '10cm diameter x 12cm height',
-      printTime: '2 hours'
-    }
+      printTime: '2 hours',
+    },
   },
   {
     id: '12',
@@ -257,15 +277,18 @@ export const PRODUCTS: Product[] = [
     price: 4299,
     originalPrice: 5299,
     category: 'Toys',
-    image: 'https://picsum.photos/seed/robot/800/800',
+    image: IMG('photo-1614728269472-7ac6e3e63139'),
     stock: 9,
     inStock: true,
     rating: 4.9,
     reviews: 31,
+    isNew: true,
+    badge: 'New print',
+    collection: 'Sci-Fi & Gaming',
     specs: {
       material: 'Multi-color ABS',
       dimensions: '30cm height',
-      printTime: '16 hours'
-    }
-  }
+      printTime: '16 hours',
+    },
+  },
 ];

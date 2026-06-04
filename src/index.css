@@ -1,59 +1,141 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,900;1,900&family=JetBrains+Mono:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap');
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Playfair Display", serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
-  
-  --color-primary: #ce071e;
-  --color-primary-dark: #8d0414;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
+
+  --color-primary: #111111;
+  --color-primary-dark: #000000;
+  --color-accent: #ce071e;
+  --color-do-muted: #6b6b6b;
+  --color-do-border: #e8e8e8;
 }
 
 body {
-  @apply bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 selection:bg-primary selection:text-white antialiased transition-colors duration-300;
+  @apply bg-white dark:bg-zinc-950 text-[#111] dark:text-zinc-100 antialiased transition-colors duration-300;
+  font-family: var(--font-sans);
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
+.shop-page-bg {
+  background-color: #ffffff;
+}
+.dark .shop-page-bg {
+  background-color: #09090b;
 }
 
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
+/* Daily Objects–style section headers */
+.do-container {
+  @apply max-w-[1400px] mx-auto px-4 md:px-8 lg:px-10;
 }
 
-::-webkit-scrollbar-thumb {
-  @apply bg-zinc-200 dark:bg-zinc-700 rounded-full hover:bg-primary dark:hover:bg-primary transition-colors;
+.do-eyebrow {
+  @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b6b6b] dark:text-zinc-400;
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
+.do-section-title {
+  @apply text-xl md:text-2xl font-semibold tracking-tight text-[#111] dark:text-white uppercase;
 }
 
-/* Stylish sweep effect simulation */
-.hvr-sweep-to-right {
-  position: relative;
-  z-index: 1;
+.do-btn-primary {
+  @apply inline-flex items-center justify-center px-8 py-3 bg-[#111] dark:bg-white text-white dark:text-[#111] text-[11px] font-semibold uppercase tracking-[0.2em] transition-opacity hover:opacity-85;
 }
 
-.hvr-sweep-to-right::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--color-primary-dark);
-  transform: scaleX(0);
-  transform-origin: 0 50%;
-  transition: transform 0.3s ease-out;
-  z-index: -1;
+.do-btn-outline {
+  @apply inline-flex items-center justify-center px-6 py-2.5 border border-[#111] dark:border-zinc-300 text-[#111] dark:text-zinc-100 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors hover:bg-[#111] hover:text-white dark:hover:bg-white dark:hover:text-[#111];
 }
 
-.hvr-sweep-to-right:hover::before {
-  transform: scaleX(1);
+.do-link {
+  @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-[#111] dark:text-zinc-200 underline-offset-4 hover:underline;
+}
+
+.section-title-shop {
+  @apply text-[11px] font-semibold uppercase tracking-[0.22em] text-[#6b6b6b] dark:text-zinc-400 mb-1;
+}
+
+.section-heading-shop {
+  @apply text-xl md:text-2xl font-semibold tracking-tight text-[#111] dark:text-white uppercase;
+}
+
+.banner-carousel-dot {
+  @apply w-1.5 h-1.5 rounded-full bg-white/40 transition-all;
+}
+.banner-carousel-dot.active {
+  @apply w-8 bg-white;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.product-card-do {
+  @apply bg-white dark:bg-zinc-900 transition-shadow;
+}
+.product-card-do:hover {
+  @apply shadow-[0_8px_30px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.25)];
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { @apply bg-transparent; }
+::-webkit-scrollbar-thumb { @apply bg-zinc-300 dark:bg-zinc-600 rounded-full; }
+
+html { scroll-behavior: smooth; }
+
+/* Alternating section backgrounds (Daily Objects rhythm) */
+.do-section-alt {
+  @apply bg-[#f7f7f7] dark:bg-zinc-900/50;
+}
+
+/* Scrolling promo strip */
+.do-promo-marquee {
+  @apply py-2.5;
+}
+
+.do-marquee-track {
+  display: flex;
+  width: max-content;
+  gap: 4rem;
+  animation: do-marquee 28s linear infinite;
+  padding-left: 100%;
+}
+
+.do-marquee-track span {
+  @apply text-[10px] md:text-[11px] font-medium uppercase tracking-[0.2em] text-[#111] dark:text-zinc-300 whitespace-nowrap flex-shrink-0;
+}
+
+@keyframes do-marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .do-marquee-track {
+    animation: none;
+    padding-left: 0;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 1rem;
+  }
+  .do-marquee-track span[aria-hidden] {
+    display: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.do-section-header {
+  @apply flex items-center justify-between gap-4 mb-8 md:mb-10;
 }

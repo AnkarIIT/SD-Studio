@@ -1,10 +1,41 @@
 import { type FormEvent, useMemo, useState, useEffect } from 'react';
-import { ArrowLeft, Building2, CheckCircle2, CreditCard, IndianRupee, Landmark, Loader2, QrCode, ShieldCheck, Copy, Check, Mail, Phone } from 'lucide-react';
+import {
+  ArrowLeft,
+  CreditCard,
+  IndianRupee,
+  Landmark,
+  Loader2,
+  QrCode,
+  ShieldCheck,
+  Copy,
+  Check,
+  Smartphone,
+  ChevronDown,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Address, CartItem, Order } from '../types';
 import { formatOrderId, formatPrice } from '../utils/formatting';
 import { generateUpiUrl, generateQrCode, validateUpiReference, validateBankReference } from '../utils/payment';
-import { sendPaymentSuccessNotification, formatPhoneForSms, isValidEmail, isValidPhone } from '../utils/notifications';
+import {
+  sendOrderConfirmedNotification,
+  sendPaymentSuccessNotification,
+  formatPriceForNotification,
+  formatDateForNotification,
+} from '../utils/notifications';
+import {
+  saveOrderToServer,
+  enqueuePaymentVerification,
+} from '../utils/ordersApi';
+import {
+  fetchPaymentConfig,
+  createRazorpayOrderOnServer,
+  openRazorpayCheckout,
+  verifyRazorpayOnServer,
+  type PaymentConfig,
+} from '../utils/razorpay';
+import CheckoutSummary from './CheckoutSummary';
+import { useSiteSettings } from '../utils/siteSettings';
+import { BRAND_NAME, BRAND_UPI_ID } from '../brand';
 
 type PaymentMethod = Order['paymentMethod'];
 
@@ -16,107 +47,171 @@ interface PaymentProps {
   onComplete: (order: Order) => void;
 }
 
-const paymentOptions: Array<{
+const primaryMethods: Array<{
   id: PaymentMethod;
   label: string;
-  description: string;
+  hint: string;
+  icon: React.ComponentType<{ className?: string }>;
 }> = [
-  { id: 'upi', label: 'UPI Payment', description: 'Customer pays to your UPI ID and enters the reference.' },
-  { id: 'card', label: 'Card Demo', description: 'Collect card-style details for demo checkout only.' },
-  { id: 'bank_transfer', label: 'Bank Transfer', description: 'Share bank details and verify using transaction reference.' },
-  { id: 'cod', label: 'Cash on Delivery', description: 'Confirm now and collect payment at delivery.' },
+  { id: 'upi', label: 'UPI', hint: 'GPay, PhonePe, Paytm', icon: Smartphone },
+  { id: 'cod', label: 'Cash on delivery', hint: 'Pay when it arrives', icon: IndianRupee },
+  { id: 'bank_transfer', label: 'Bank transfer', hint: 'NEFT / IMPS / RTGS', icon: Landmark },
 ];
 
 const merchant = {
-  upiId: '3dbysd@upi',
-  bankName: '3D by SD Commerce Bank',
-  accountName: '3D by SD Studio',
+  upiId: BRAND_UPI_ID,
+  bankName: BRAND_NAME,
+  accountName: `${BRAND_NAME} Studio`,
   accountNumber: '123456789012',
-  ifsc: 'SD3D0001234',
+  ifsc: 'LBND0001234',
 };
 
-const onlyDigits = (value: string) => value.replace(/\D/g, '');
+const onlyDigits = (v: string) => v.replace(/\D/g, '');
+
+function CopyButton({ value, label }: { value: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        navigator.clipboard.writeText(value);
+        setCopied(true);
+        toast.success(`${label} copied`);
+        setTimeout(() => setCopied(false), 2000);
+      }}
+      className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+    >
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+}
 
 export default function Payment({ order, items, address, onBack, onComplete }: PaymentProps) {
   const [method, setMethod] = useState<PaymentMethod>('upi');
+  const [payConfig, setPayConfig] = useState<PaymentConfig | null>(null);
+  const [showCardDemo, setShowCardDemo] = useState(false);
   const [upiReference, setUpiReference] = useState('');
   const [bankReference, setBankReference] = useState('');
-  const [qrCode, setQrCode] = useState<string>('');
+  const [qrCode, setQrCode] = useState('');
   const [qrLoading, setQrLoading] = useState(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [card, setCard] = useState({
-    name: address.fullName,
-    number: '',
-    expiry: '',
-    cvv: '',
-  });
+  const [card, setCard] = useState({ name: address.fullName, number: '', expiry: '', cvv: '' });
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Generate UPI QR code on mount and when order total changes
-  useEffect(() => {
-    const generateQr = async () => {
-      try {
-        setQrLoading(true);
-        const upiUrl = generateUpiUrl(
-          merchant.upiId,
-          '3D by SD Store',
-          Math.round(order.total * 100), // Convert to paise
-          `Order-${formatOrderId(order.id)}`
-        );
-        const qrDataUrl = await generateQrCode(upiUrl);
-        setQrCode(qrDataUrl);
-      } catch (error) {
-        console.error('Failed to generate QR code:', error);
-        toast.error('Failed to generate QR code. Please refresh.');
-      } finally {
-        setQrLoading(false);
-      }
-    };
-
-    if (method === 'upi') {
-      generateQr();
-    }
-  }, [method, order.total, order.id]);
+  const codEnabled = useSiteSettings((s) => s.codEnabled);
+  const visibleMethods = primaryMethods.filter((m) => m.id !== 'cod' || codEnabled);
 
   const maskedCard = useMemo(() => {
     const digits = onlyDigits(card.number).slice(0, 16);
     return digits.replace(/(\d{4})(?=\d)/g, '$1 ');
   }, [card.number]);
 
+  useEffect(() => {
+    saveOrderToServer({ ...order, status: 'pending' }).catch(() => undefined);
+    fetchPaymentConfig().then(setPayConfig);
+  }, [order.id]);
+
+  useEffect(() => {
+    if (method !== 'upi') return;
+    setQrLoading(true);
+    const url = generateUpiUrl(
+      merchant.upiId,
+      BRAND_NAME,
+      Math.round(order.total * 100),
+      `Order-${formatOrderId(order.id)}`
+    );
+    generateQrCode(url)
+      .then(setQrCode)
+      .catch(() => toast.error('Could not load QR code'))
+      .finally(() => setQrLoading(false));
+  }, [method, order.total, order.id]);
+
   const validatePayment = () => {
-    if (method === 'upi') {
-      if (!validateUpiReference(upiReference)) {
-        return 'Enter a valid UPI transaction reference (6-20 characters, alphanumeric).';
-      }
-    }
-
-    if (method === 'bank_transfer') {
-      if (!validateBankReference(bankReference)) {
-        return 'Enter a valid bank UTR reference (9-20 characters, alphanumeric).';
-      }
-    }
-
+    if (method === 'razorpay') return '';
+    if (method === 'upi' && !validateUpiReference(upiReference))
+      return 'Enter your UPI transaction ID (6–20 characters).';
+    if (method === 'bank_transfer' && !validateBankReference(bankReference))
+      return 'Enter your bank UTR (9–20 characters).';
     if (method === 'card') {
-      if (card.name.trim().length < 2) return 'Enter the name on card.';
-      if (onlyDigits(card.number).length !== 16) return 'Enter a 16 digit card number.';
-      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(card.expiry)) return 'Use MM/YY for expiry.';
+      if (card.name.trim().length < 2) return 'Enter name on card.';
+      if (onlyDigits(card.number).length !== 16) return 'Enter a valid 16-digit card number.';
+      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(card.expiry)) return 'Expiry must be MM/YY.';
       if (onlyDigits(card.cvv).length < 3) return 'Enter a valid CVV.';
     }
-
     return '';
+  };
+
+  const payWithRazorpay = async () => {
+    setIsProcessing(true);
+    try {
+      const config = payConfig ?? (await fetchPaymentConfig());
+      const keyId = config.keyId ?? import.meta.env.VITE_RAZORPAY_KEY_ID;
+      if (!keyId) {
+        toast.error('Razorpay not configured');
+        return;
+      }
+
+      const created = await createRazorpayOrderOnServer(order.id, order.total);
+      if (!created.success || !created.razorpayOrderId) {
+        toast.error(created.error ?? 'Could not start Razorpay');
+        return;
+      }
+
+      const response = await openRazorpayCheckout({
+        keyId,
+        orderId: order.id,
+        razorpayOrderId: created.razorpayOrderId,
+        amountPaise: created.amount ?? Math.round(order.total * 100),
+        customerName: address.fullName,
+        customerEmail: address.email,
+        customerPhone: address.phone,
+        demo: created.demo ?? config.demoMode,
+      });
+
+      if (!response) return;
+
+      const verified = await verifyRazorpayOnServer({
+        orderId: order.id,
+        razorpayOrderId: response.razorpay_order_id,
+        razorpayPaymentId: response.razorpay_payment_id,
+        razorpaySignature: response.razorpay_signature,
+      });
+
+      if (!verified.success) {
+        toast.error(verified.error ?? 'Payment verification failed');
+        return;
+      }
+
+      toast.success('Razorpay payment confirmed');
+      onComplete({
+        ...order,
+        status: 'paid',
+        paymentMethod: 'razorpay',
+        paymentId: response.razorpay_payment_id,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Payment cancelled';
+      if (msg !== 'Payment cancelled') toast.error(msg);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const completePayment = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (method === 'razorpay') {
+      await payWithRazorpay();
+      return;
+    }
 
-    const error = validatePayment();
-    if (error) {
-      toast.error(error);
+    const err = validatePayment();
+    if (err) {
+      toast.error(err);
       return;
     }
 
     setIsProcessing(true);
-    await new Promise(resolve => setTimeout(resolve, 700));
+    await new Promise((r) => setTimeout(r, 600));
 
     const paymentId =
       method === 'cod'
@@ -127,429 +222,330 @@ export default function Payment({ order, items, address, onBack, onComplete }: P
             ? bankReference.trim().toUpperCase()
             : `CARD-DEMO-${order.id.slice(0, 8).toUpperCase()}`;
 
-    const completedOrder = {
+    const orderId = formatOrderId(order.id);
+    const notifyPayload = {
+      email: address.email,
+      phone: address.phone,
+      customerName: address.fullName,
+      orderId,
+    };
+
+    const notifyResult =
+      method === 'cod'
+        ? await sendOrderConfirmedNotification({
+            ...notifyPayload,
+            estimatedProduction: '2–5 business days',
+          })
+        : await sendPaymentSuccessNotification({
+            ...notifyPayload,
+            amount: formatPriceForNotification(order.total),
+            paymentMethod:
+              method === 'upi' ? 'UPI' : method === 'card' ? 'Card (demo)' : 'Bank transfer',
+            orderDate: formatDateForNotification(new Date()),
+          });
+
+    if (notifyResult.success) {
+      toast.success(notifyResult.results?.join(' · ') ?? 'Order confirmed');
+    } else {
+      toast(
+        'Order saved — confirmation email could not be sent. Check notification server or demo mode.',
+        { icon: '⚠️', duration: 5000 }
+      );
+    }
+
+    const needsVerification = method === 'upi' || method === 'bank_transfer';
+    const queueResult = await enqueuePaymentVerification({
+      orderId: order.id,
+      method,
+      reference: paymentId,
+      amount: order.total,
+    });
+
+    if (needsVerification && queueResult.autoVerified) {
+      toast.success('Payment verified automatically (dev mode)');
+    } else if (needsVerification) {
+      toast.success('Payment submitted — awaiting verification', { duration: 5000 });
+    }
+
+    const finalStatus =
+      needsVerification && !queueResult.autoVerified ? 'pending_payment' : 'paid';
+
+    onComplete({
       ...order,
-      status: method === 'cod' ? 'confirmed' : 'paid',
+      status: finalStatus,
       paymentMethod: method,
       paymentId,
       updatedAt: new Date().toISOString(),
-    };
-
-    // Send payment success notification
-    if (isValidEmail(address.email)) {
-      try {
-        const notificationResult = await sendPaymentSuccessNotification({
-          email: address.email,
-          phone: isValidPhone(address.phone) ? address.phone : undefined,
-          customerName: address.fullName,
-          orderId: formatOrderId(order.id),
-          amount: formatPrice(order.total),
-          paymentMethod: method === 'upi' ? 'UPI' : method === 'card' ? 'Card' : method === 'bank_transfer' ? 'Bank Transfer' : 'COD',
-          orderDate: new Date().toLocaleDateString('en-IN'),
-        });
-
-        if (notificationResult.success) {
-          if (notificationResult.emailSent) {
-            toast.success('✅ Confirmation email sent');
-          }
-          if (notificationResult.smsSent) {
-            toast.success('✅ Confirmation SMS sent');
-          }
-        } else {
-          console.warn('Notification failed:', notificationResult.error);
-        }
-      } catch (error) {
-        console.error('Failed to send notification:', error);
-        // Don't fail the order completion if notification fails
-      }
-    }
-
-    onComplete({
-      ...completedOrder,
-      status: 'paid' as const
     });
   };
 
+  const ctaLabel =
+    isProcessing
+      ? 'Please wait…'
+      : method === 'razorpay'
+        ? 'Pay with Razorpay'
+        : method === 'cod'
+          ? 'Place order'
+          : method === 'card'
+            ? 'Complete demo payment'
+            : 'I have paid — confirm order';
+
   return (
-    <form onSubmit={completePayment} className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-0">
-      <div className="p-6 md:p-10 space-y-8">
+    <form onSubmit={completePayment} className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(300px,360px)]">
+      <div className="p-6 md:p-10 space-y-8 max-w-2xl">
         <button
           type="button"
           onClick={onBack}
-          className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400 hover:text-primary dark:hover:text-primary transition-colors"
+          className="text-sm text-zinc-500 hover:text-primary transition-colors inline-flex items-center gap-1.5"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back to shipping
+          <ArrowLeft className="w-4 h-4" /> Back to delivery
         </button>
 
-        <section>
-          <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-3">
-            Order {formatOrderId(order.id)}
+        <div>
+          <p className="text-sm text-zinc-500 mb-1">Order {formatOrderId(order.id)}</p>
+          <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">How would you like to pay?</h3>
+          <p className="text-sm text-zinc-500 mt-2">
+            Pay <span className="font-semibold text-zinc-800 dark:text-zinc-200">{formatPrice(order.total)}</span> — no payment gateway fees.
           </p>
-          <h3 className="text-4xl md:text-5xl font-serif font-black italic tracking-tighter mb-3 text-zinc-900 dark:text-zinc-100">
-            Payment
-          </h3>
-          <p className="text-zinc-500 dark:text-zinc-400 font-medium max-w-2xl">
-            Choose a no-gateway payment method. This keeps the store usable without payment provider fees while still creating complete orders and payment references.
-          </p>
-        </section>
+        </div>
 
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {paymentOptions.map(option => (
+        {/* Payment method list */}
+        <div className="space-y-2" role="radiogroup" aria-label="Payment method">
+          {payConfig?.razorpayEnabled !== false && (
             <button
-              key={option.id}
               type="button"
-              onClick={() => setMethod(option.id)}
-              className={`p-5 border text-left transition-all ${
-                method === option.id 
-                  ? 'border-primary bg-red-50 dark:bg-red-950/20' 
-                  : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
+              onClick={() => {
+                setMethod('razorpay');
+                setShowCardDemo(false);
+              }}
+              className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
+                method === 'razorpay'
+                  ? 'border-primary bg-primary/5 shadow-sm'
+                  : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-zinc-300'
               }`}
             >
-              <div className="flex items-center justify-between mb-4">
-                {option.id === 'upi' && <QrCode className="w-6 h-6 text-primary" />}
-                {option.id === 'card' && <CreditCard className="w-6 h-6 text-primary" />}
-                {option.id === 'bank_transfer' && <Landmark className="w-6 h-6 text-primary" />}
-                {option.id === 'cod' && <IndianRupee className="w-6 h-6 text-primary" />}
-                {method === option.id && <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />}
-              </div>
-              <span className="block font-black uppercase tracking-widest text-xs text-zinc-900 dark:text-zinc-100">{option.label}</span>
-              <span className="block text-xs text-zinc-500 dark:text-zinc-400 mt-2">{option.description}</span>
+              <CreditCard className={`w-5 h-5 ${method === 'razorpay' ? 'text-primary' : 'text-zinc-400'}`} />
+              <span className="flex-1">
+                <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                  Razorpay {payConfig?.demoMode ? '(demo)' : ''}
+                </span>
+                <span className="block text-xs text-zinc-500">Cards, UPI, wallets — secure checkout</span>
+              </span>
             </button>
-          ))}
-        </section>
+          )}
 
-        {method === 'upi' && (
-          <section className="border border-zinc-200 dark:border-zinc-800 p-6 bg-gradient-to-br from-blue-50/50 to-zinc-50/50 dark:from-blue-950/20 dark:to-zinc-900/50 space-y-6 transition-colors">
-            <div>
-              <h4 className="font-black uppercase tracking-widest text-xs mb-4 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                <QrCode className="w-4 h-4 text-primary" />
-                Step 1: Scan UPI QR Code
-              </h4>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                Open any UPI app (Google Pay, Paytm, PhonePe, WhatsApp Pay) and scan this QR code to complete payment.
-              </p>
-              
-              <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
-                {/* QR Code Display */}
-                <div className="flex flex-col items-center gap-3">
+          {visibleMethods.map((opt) => {
+            const Icon = opt.icon;
+            const active = method === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  setMethod(opt.id);
+                  setShowCardDemo(false);
+                }}
+                className={`w-full flex items-center gap-4 p-4 rounded-xl border text-left transition-all ${
+                  active
+                    ? 'border-primary bg-primary/5 shadow-sm'
+                    : 'border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-zinc-300'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                    active ? 'border-primary' : 'border-zinc-300 dark:border-zinc-600'
+                  }`}
+                >
+                  {active && <span className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                </span>
+                <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-primary' : 'text-zinc-400'}`} />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100">{opt.label}</span>
+                  <span className="block text-xs text-zinc-500">{opt.hint}</span>
+                </span>
+              </button>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => {
+              const next = !showCardDemo;
+              setShowCardDemo(next);
+              setMethod(next ? 'card' : 'upi');
+            }}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
+          >
+            <span className="inline-flex items-center gap-2">
+              <CreditCard className="w-4 h-4" /> Card payment (demo only)
+            </span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${showCardDemo ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
+
+        {/* Method details — one panel */}
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-5 md:p-6">
+          {method === 'upi' && (
+            <div className="space-y-6">
+              <ol className="text-sm text-zinc-600 dark:text-zinc-400 space-y-2 list-decimal list-inside">
+                <li>Scan the QR or pay to <span className="font-mono font-medium text-zinc-900 dark:text-zinc-100">{merchant.upiId}</span></li>
+                <li>Pay exactly <span className="font-semibold text-primary">{formatPrice(order.total)}</span></li>
+                <li>Paste the UPI reference below</li>
+              </ol>
+
+              <div className="flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+                <div className="flex-shrink-0">
                   {qrLoading ? (
-                    <div className="w-56 h-56 bg-white dark:bg-zinc-800 border-2 border-zinc-200 dark:border-zinc-700 flex items-center justify-center rounded-lg">
-                      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                    <div className="w-36 h-36 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                      <Loader2 className="w-6 h-6 text-primary animate-spin" />
                     </div>
                   ) : qrCode ? (
-                    <div className="relative">
-                      <img 
-                        src={qrCode} 
-                        alt="UPI QR Code" 
-                        className="w-56 h-56 bg-white border-2 border-primary p-2 rounded-lg shadow-lg"
-                      />
-                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 bg-green-600 text-white px-3 py-1 rounded text-xs font-bold whitespace-nowrap">
-                        Ready to Scan
-                      </div>
-                    </div>
+                    <img
+                      src={qrCode}
+                      alt="UPI QR"
+                      className="w-36 h-36 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white p-2"
+                    />
                   ) : (
-                    <div className="w-56 h-56 bg-zinc-100 dark:bg-zinc-800 border-2 border-zinc-300 dark:border-zinc-700 flex items-center justify-center rounded-lg">
-                      <span className="text-zinc-400 text-sm">QR Code Failed</span>
+                    <div className="w-36 h-36 rounded-lg bg-zinc-100 flex items-center justify-center">
+                      <QrCode className="w-8 h-8 text-zinc-300" />
                     </div>
                   )}
-                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 font-bold text-center max-w-56 mt-8 uppercase tracking-widest leading-relaxed">
-                    Alternatively, send {formatPrice(order.total)} to: <br/>
-                    <strong className="text-zinc-900 dark:text-zinc-100">{merchant.upiId}</strong>
+                </div>
+                <div className="text-sm space-y-2 flex-1">
+                  <p>
+                    UPI ID: <span className="font-mono font-semibold">{merchant.upiId}</span>{' '}
+                    <CopyButton value={merchant.upiId} label="UPI ID" />
                   </p>
                 </div>
-
-                {/* UPI Details */}
-                <div className="flex-1 space-y-4 w-full">
-                  <div className="bg-white dark:bg-zinc-900 p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-colors">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">
-                      UPI ID
-                    </p>
-                    <p className="text-2xl font-serif font-black italic text-primary mb-3">
-                      {merchant.upiId}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText(merchant.upiId);
-                        setCopiedField('upi');
-                        setTimeout(() => setCopiedField(null), 2000);
-                        toast.success('Copied to clipboard');
-                      }}
-                      className="flex items-center gap-2 text-xs font-bold text-primary hover:text-primary-dark transition-colors"
-                    >
-                      {copiedField === 'upi' ? (
-                        <>
-                          <Check className="w-3 h-3" />
-                          Copied
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3" />
-                          Copy
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="bg-white dark:bg-zinc-900 p-4 border border-zinc-200 dark:border-zinc-800 rounded-lg transition-colors">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">
-                      Amount
-                    </p>
-                    <p className="text-2xl font-serif font-black italic text-primary">
-                      {formatPrice(order.total)}
-                    </p>
-                  </div>
-                </div>
               </div>
-            </div>
 
-            <hr className="border-zinc-300 dark:border-zinc-800" />
-
-            <div>
-              <h4 className="font-black uppercase tracking-widest text-xs mb-4 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                <CheckCircle2 className="w-4 h-4 text-green-600 dark:text-green-400" />
-                Step 2: Enter Transaction Reference
-              </h4>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-                After payment is complete, check your UPI app for the transaction reference (shown in payment confirmation). Paste it below.
-              </p>
-              <input
-                value={upiReference}
-                onChange={(e) => setUpiReference(e.target.value.toUpperCase())}
-                placeholder="E.g., ABC123DEF456 or 123456789012"
-                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-bold outline-none focus:border-primary text-zinc-900 dark:text-zinc-100 rounded-lg transition-all"
-              />
-              <p className="text-xs text-zinc-500 dark:text-zinc-500 mt-2 font-mono">
-                Transaction Reference is a unique ID shown in your UPI app after payment confirms.
-              </p>
+              <label className="block">
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">UPI transaction reference</span>
+                <input
+                  value={upiReference}
+                  onChange={(e) => setUpiReference(e.target.value.toUpperCase())}
+                  placeholder="e.g. 123456789012"
+                  className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800 px-4 py-3 text-sm font-mono outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+                />
+              </label>
             </div>
-          </section>
-        )}
+          )}
 
-        {method === 'card' && (
-          <section className="border border-zinc-200 dark:border-zinc-800 p-6 bg-gradient-to-br from-orange-50/50 to-zinc-50/50 dark:from-orange-950/20 dark:to-zinc-900/50 transition-colors">
-            <div className="mb-6 p-4 bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-800 rounded-lg">
-              <p className="text-sm font-bold text-orange-900 dark:text-orange-400">
-                ⓘ Demo Mode: This is a demonstration only. Card information is not processed or stored.
+          {method === 'bank_transfer' && (
+            <div className="space-y-5">
+              <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                Transfer <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatPrice(order.total)}</span> then enter your UTR.
               </p>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                {[
+                  ['Account name', merchant.accountName],
+                  ['Account no.', merchant.accountNumber],
+                  ['Bank', merchant.bankName],
+                  ['IFSC', merchant.ifsc],
+                ].map(([k, v]) => (
+                  <div key={k} className="rounded-lg bg-zinc-50 dark:bg-zinc-800/80 px-3 py-2.5">
+                    <dt className="text-xs text-zinc-500">{k}</dt>
+                    <dd className="font-mono font-medium text-zinc-900 dark:text-zinc-100 mt-0.5 flex items-center gap-2 flex-wrap">
+                      {v}
+                      <CopyButton value={v} label={k} />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+              <label className="block">
+                <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">UTR / reference number</span>
+                <input
+                  value={bankReference}
+                  onChange={(e) => setBankReference(e.target.value.toUpperCase())}
+                  placeholder="Bank reference after transfer"
+                  className="mt-2 w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800 px-4 py-3 text-sm font-mono outline-none focus:border-primary focus:ring-1 focus:ring-primary/30"
+                />
+              </label>
             </div>
-            
-            <h4 className="font-black uppercase tracking-widest text-xs mb-5 text-zinc-900 dark:text-zinc-100">Demo Card Details</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          )}
+
+          {method === 'razorpay' && (
+            <div className="text-sm text-zinc-600 dark:text-zinc-400 space-y-2">
+              <p>
+                Pay <span className="font-semibold text-primary">{formatPrice(order.total)}</span> via Razorpay.
+                {payConfig?.demoMode && ' Demo mode — no real charge.'}
+              </p>
+              <p className="text-xs text-zinc-500">Click the button below to open the secure payment window.</p>
+            </div>
+          )}
+
+          {method === 'cod' && (
+            <div className="text-sm text-zinc-600 dark:text-zinc-400 space-y-3">
+              <p>
+                You will pay <span className="font-semibold text-zinc-900 dark:text-zinc-100">{formatPrice(order.total)}</span> in cash when your order is delivered (within 5–7 business days).
+              </p>
+              <ul className="space-y-1.5 text-zinc-500">
+                <li>· Order is confirmed immediately</li>
+                <li>· We will email you production & shipping updates</li>
+              </ul>
+            </div>
+          )}
+
+          {method === 'card' && showCardDemo && (
+            <div className="space-y-4">
+              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 rounded-lg px-3 py-2">
+                Demo only — card data is not stored or charged.
+              </p>
               <input
                 value={card.name}
-                onChange={(e) => setCard(current => ({ ...current, name: e.target.value }))}
+                onChange={(e) => setCard((c) => ({ ...c, name: e.target.value }))}
                 placeholder="Name on card"
-                className="md:col-span-2 border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-bold outline-none focus:border-primary bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-lg transition-all"
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm outline-none focus:border-primary"
               />
               <input
                 value={maskedCard}
-                onChange={(e) => setCard(current => ({ ...current, number: onlyDigits(e.target.value).slice(0, 16) }))}
-                placeholder="Card number (16 digits)"
+                onChange={(e) => setCard((c) => ({ ...c, number: onlyDigits(e.target.value).slice(0, 16) }))}
+                placeholder="Card number"
                 inputMode="numeric"
-                className="md:col-span-2 border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-bold outline-none focus:border-primary bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-lg font-mono transition-all"
+                className="w-full rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm font-mono outline-none focus:border-primary"
               />
-              <input
-                value={card.expiry}
-                onChange={(e) => setCard(current => ({ ...current, expiry: e.target.value.slice(0, 5) }))}
-                placeholder="MM/YY"
-                maxLength={5}
-                className="border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-bold outline-none focus:border-primary bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-lg font-mono transition-all"
-              />
-              <input
-                value={card.cvv}
-                onChange={(e) => setCard(current => ({ ...current, cvv: onlyDigits(e.target.value).slice(0, 4) }))}
-                placeholder="CVV"
-                inputMode="numeric"
-                maxLength={4}
-                className="border border-zinc-200 dark:border-zinc-800 p-4 text-sm font-bold outline-none focus:border-primary bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded-lg font-mono transition-all"
-              />
-            </div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-4 font-bold">
-              💳 Demo card data is not sent anywhere or stored with your order.
-            </p>
-          </section>
-        )}
-
-        {method === 'cod' && (
-          <section className="border border-green-200 dark:border-green-900/50 p-6 bg-gradient-to-br from-green-50/50 to-zinc-50/50 dark:from-green-950/20 dark:to-zinc-900/50 transition-colors">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-green-600 dark:bg-green-700 rounded-full flex items-center justify-center flex-shrink-0">
-                <CheckCircle2 className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-black uppercase tracking-widest text-xs mb-3 text-green-900 dark:text-green-400">
-                  Cash on Delivery
-                </h4>
-                <p className="text-sm text-green-900 dark:text-green-400/80 mb-4 leading-relaxed">
-                  Pay {formatPrice(order.total)} when your order is delivered. Our delivery partner will collect the payment at your doorstep.
-                </p>
-                <div className="bg-white dark:bg-zinc-900 p-4 border border-green-200 dark:border-green-900/50 rounded-lg space-y-2 transition-colors">
-                  <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">What to expect:</p>
-                  <ul className="text-xs text-zinc-700 dark:text-zinc-400 space-y-1">
-                    <li>✓ Order will be confirmed immediately</li>
-                    <li>✓ Delivery within 5-7 business days</li>
-                    <li>✓ Payment collected at delivery</li>
-                    <li>✓ 100% refund if you decline</li>
-                  </ul>
-                </div>
+              <div className="grid grid-cols-2 gap-3">
+                <input
+                  value={card.expiry}
+                  onChange={(e) => setCard((c) => ({ ...c, expiry: e.target.value.slice(0, 5) }))}
+                  placeholder="MM/YY"
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm font-mono outline-none focus:border-primary"
+                />
+                <input
+                  value={card.cvv}
+                  onChange={(e) => setCard((c) => ({ ...c, cvv: onlyDigits(e.target.value).slice(0, 4) }))}
+                  placeholder="CVV"
+                  inputMode="numeric"
+                  className="rounded-lg border border-zinc-300 dark:border-zinc-600 px-4 py-3 text-sm font-mono outline-none focus:border-primary"
+                />
               </div>
             </div>
-          </section>
-        )}
+          )}
+        </div>
 
-        {method === 'bank_transfer' && (
-          <section className="border border-zinc-200 dark:border-zinc-800 p-6 bg-gradient-to-br from-blue-50/50 to-zinc-50/50 dark:from-blue-950/20 dark:to-zinc-900/50 space-y-6 transition-colors">
-            <div>
-              <h4 className="font-black uppercase tracking-widest text-xs mb-4 flex items-center gap-2 text-zinc-900 dark:text-zinc-100">
-                <Building2 className="w-4 h-4 text-primary" />
-                Bank Transfer Instructions
-              </h4>
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-6">
-                Transfer {formatPrice(order.total)} to the bank account below. Your order will be confirmed once the payment is received.
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-zinc-900 p-6 border-2 border-primary rounded-lg space-y-4 transition-colors">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">Account Holder</p>
-                  <p className="text-lg font-bold text-zinc-900 dark:text-zinc-100">{merchant.accountName}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(merchant.accountName);
-                      setCopiedField('name');
-                      setTimeout(() => setCopiedField(null), 2000);
-                      toast.success('Copied');
-                    }}
-                    className="flex items-center gap-1 text-xs font-bold text-primary mt-2"
-                  >
-                    {copiedField === 'name' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  </button>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">Amount</p>
-                  <p className="text-lg font-bold text-primary">{formatPrice(order.total)}</p>
-                </div>
-              </div>
-
-              <hr className="border-zinc-200 dark:border-zinc-800" />
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">Bank Name</p>
-                  <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100">{merchant.bankName}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(merchant.bankName);
-                      setCopiedField('bank');
-                      setTimeout(() => setCopiedField(null), 2000);
-                      toast.success('Copied');
-                    }}
-                    className="flex items-center gap-1 text-xs font-bold text-primary mt-2"
-                  >
-                    {copiedField === 'bank' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  </button>
-                </div>
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">IFSC Code</p>
-                  <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 font-mono">{merchant.ifsc}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(merchant.ifsc);
-                      setCopiedField('ifsc');
-                      setTimeout(() => setCopiedField(null), 2000);
-                      toast.success('Copied');
-                    }}
-                    className="flex items-center gap-1 text-xs font-bold text-primary mt-2"
-                  >
-                    {copiedField === 'ifsc' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  </button>
-                </div>
-              </div>
-
-              <hr className="border-zinc-200 dark:border-zinc-800" />
-
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-2">Account Number</p>
-                <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 font-mono">{merchant.accountNumber}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(merchant.accountNumber);
-                    setCopiedField('account');
-                    setTimeout(() => setCopiedField(null), 2000);
-                    toast.success('Copied');
-                  }}
-                  className="flex items-center gap-1 text-xs font-bold text-primary mt-2"
-                >
-                  {copiedField === 'account' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 p-4 rounded-lg transition-colors">
-              <p className="text-sm text-yellow-900 dark:text-yellow-400 font-bold mb-2">⚠️ Reference Number Required</p>
-              <p className="text-xs text-yellow-800 dark:text-yellow-500 mb-4">
-                After transferring, you'll receive a UTR (Unique Transaction Reference) from your bank. Paste it below to complete the order.
-              </p>
-              <input
-                value={bankReference}
-                onChange={(e) => setBankReference(e.target.value.toUpperCase())}
-                placeholder="E.g., UTR1234567890 or Bank Reference"
-                className="w-full bg-white dark:bg-zinc-900 border border-yellow-300 dark:border-yellow-900 p-4 text-sm font-bold outline-none focus:border-yellow-500 text-zinc-900 dark:text-zinc-100 rounded transition-all"
-              />
-            </div>
-          </section>
-        )}
+        <p className="text-xs text-zinc-400 flex items-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5" /> Secure checkout · Made-to-order 3D prints
+        </p>
       </div>
 
-      <aside className="bg-zinc-50 dark:bg-zinc-900/50 border-l border-zinc-100 dark:border-zinc-800 p-6 md:p-8 space-y-6 transition-colors">
-        <h3 className="font-black uppercase tracking-[0.2em] text-xs text-zinc-900 dark:text-zinc-100">Payable Summary</h3>
-        <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
-          {items.map(item => (
-            <div key={item.id} className="flex gap-3">
-              <img src={item.image} alt={item.name} className="w-16 h-16 object-cover bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800" />
-              <div className="flex-1">
-                <p className="font-black uppercase text-xs leading-tight text-zinc-900 dark:text-zinc-100">{item.name}</p>
-                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold mt-1">Qty {item.quantity}</p>
-              </div>
-              <span className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{formatPrice(item.price * item.quantity)}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="space-y-3 text-sm border-t border-zinc-200 dark:border-zinc-800 pt-5">
-          <div className="flex justify-between text-zinc-600 dark:text-zinc-400"><span>Subtotal</span><span className="text-zinc-900 dark:text-zinc-100">{formatPrice(order.subtotal)}</span></div>
-          <div className="flex justify-between text-zinc-600 dark:text-zinc-400"><span>Discount</span><span className="text-green-600 dark:text-green-400">-{formatPrice(order.discount)}</span></div>
-          <div className="flex justify-between text-zinc-600 dark:text-zinc-400"><span>GST</span><span className="text-zinc-900 dark:text-zinc-100">{formatPrice(order.tax)}</span></div>
-          <div className="flex justify-between text-zinc-600 dark:text-zinc-400"><span>Shipping</span><span className="text-zinc-900 dark:text-zinc-100">{order.shipping === 0 ? 'FREE' : formatPrice(order.shipping)}</span></div>
-          <div className="flex justify-between items-end border-t border-zinc-200 dark:border-zinc-800 pt-4">
-            <span className="font-black uppercase tracking-widest text-xs text-zinc-900 dark:text-zinc-100">Total</span>
-            <span className="text-3xl font-serif font-black italic text-primary">{formatPrice(order.total)}</span>
-          </div>
-        </div>
-
+      <CheckoutSummary
+        items={items}
+        subtotal={order.subtotal}
+        discount={order.discount}
+        tax={order.tax}
+        shipping={order.shipping}
+        total={order.total}
+        address={address}
+      >
         <button
           type="submit"
           disabled={isProcessing}
-          className="w-full py-4 bg-primary text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-primary-dark disabled:opacity-60 transition-colors rounded"
+          className="w-full py-3.5 bg-primary text-white text-sm font-semibold rounded-xl hover:bg-primary-dark disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
         >
-          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-          {method === 'cod' ? 'Confirm COD Order' : 'Confirm Payment'}
+          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          {ctaLabel}
         </button>
-
-        <div className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-          <p className="font-bold text-zinc-700 dark:text-zinc-300 mb-1">Shipping to</p>
-          <p>{address.fullName}</p>
-          <p>{address.street}</p>
-          <p>{address.city}, {address.state} {address.pincode}</p>
-        </div>
-      </aside>
+      </CheckoutSummary>
     </form>
   );
 }

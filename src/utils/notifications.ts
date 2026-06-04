@@ -2,7 +2,45 @@
  * Notification Service - Frontend utilities to call backend notification APIs
  */
 
-const NOTIFICATION_API = process.env.VITE_NOTIFICATION_API_URL || 'http://localhost:5001';
+import { isDemoModeActive } from './notificationMode';
+
+/** Empty string = same-origin /api via Vite proxy in dev */
+export const NOTIFICATION_API = import.meta.env.VITE_NOTIFICATION_API_URL || '';
+
+async function postOrderNotification(
+  path: string,
+  body: object,
+  demoLabel: string
+): Promise<NotificationResponse> {
+  if (isDemoModeActive()) {
+    return {
+      success: true,
+      results: [`Demo: ${demoLabel} (no real email/SMS sent)`],
+      message: 'Demo mode — notification simulated',
+    };
+  }
+
+  try {
+    const response = await fetch(`${NOTIFICATION_API}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error((error as { error?: string }).error || 'Failed to send notification');
+    }
+
+    return await response.json();
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to send notification';
+    console.error(`${demoLabel} error:`, error);
+    return { success: false, error: message };
+  }
+}
+
+export const DEV_PANEL_HEADER = 'X-Dev-Panel';
 
 export interface PaymentNotificationData {
   email: string;
@@ -12,6 +50,24 @@ export interface PaymentNotificationData {
   amount: string;
   paymentMethod: string;
   orderDate?: string;
+}
+
+export interface OrderConfirmedNotificationData {
+  email: string;
+  phone?: string;
+  customerName: string;
+  orderId: string;
+  estimatedProduction?: string;
+}
+
+export interface OrderShippedNotificationData {
+  email: string;
+  phone?: string;
+  customerName: string;
+  orderId: string;
+  trackingNumber?: string;
+  carrier?: string;
+  estimatedDelivery?: string;
 }
 
 export interface DeliveryNotificationData {
@@ -38,70 +94,57 @@ export interface NotificationResponse {
  */
 export const sendPaymentSuccessNotification = async (
   data: PaymentNotificationData
-): Promise<NotificationResponse> => {
-  try {
-    const response = await fetch(
-      `${NOTIFICATION_API}/api/notifications/payment-success`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      }
-    );
+): Promise<NotificationResponse> =>
+  postOrderNotification('/api/notifications/payment-success', data, 'Payment confirmation');
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to send payment notification');
-    }
+/**
+ * Send order confirmed notification (email + SMS)
+ */
+export const sendOrderConfirmedNotification = async (
+  data: OrderConfirmedNotificationData
+): Promise<NotificationResponse> =>
+  postOrderNotification('/api/notifications/order-confirmed', data, 'Order confirmed');
 
-    return await response.json();
-  } catch (error: any) {
-    console.error('Payment notification error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to send payment notification',
-    };
-  }
-};
+/**
+ * Send order shipped notification (email + SMS)
+ */
+export const sendOrderShippedNotification = async (
+  data: OrderShippedNotificationData
+): Promise<NotificationResponse> =>
+  postOrderNotification('/api/notifications/order-shipped', data, 'Order shipped');
 
 /**
  * Send delivery confirmation notification (email + SMS)
  */
 export const sendDeliveryNotification = async (
   data: DeliveryNotificationData
-): Promise<NotificationResponse> => {
-  try {
-    const response = await fetch(
-      `${NOTIFICATION_API}/api/notifications/delivery-confirmation`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      }
-    );
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to send delivery notification');
-    }
-
-    return await response.json();
-  } catch (error: any) {
-    console.error('Delivery notification error:', error);
-    return {
-      success: false,
-      error: error.message || 'Failed to send delivery notification',
-    };
-  }
-};
+): Promise<NotificationResponse> =>
+  postOrderNotification('/api/notifications/delivery-confirmation', data, 'Delivery confirmation');
 
 /**
  * Check notification service health
  */
+export const fetchNotificationLogs = async (): Promise<{
+  success: boolean;
+  logs: Array<{
+    id: string;
+    timestamp: string;
+    channel: string;
+    recipient: string;
+    status: string;
+    subject?: string;
+    detail?: string;
+  }>;
+}> => {
+  try {
+    const response = await fetch(`${NOTIFICATION_API}/api/notifications/logs`);
+    if (!response.ok) throw new Error('Failed to load logs');
+    return await response.json();
+  } catch {
+    return { success: false, logs: [] };
+  }
+};
+
 export const checkNotificationServiceHealth = async (): Promise<{
   status: string;
   emailConfigured: boolean;

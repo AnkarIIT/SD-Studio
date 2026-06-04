@@ -1,8 +1,13 @@
-import { motion, AnimatePresence } from 'motion/react';
-import { ShoppingCart, Menu, X, Layers, Instagram, Twitter, Youtube, User, Search, Heart } from 'lucide-react';
-import { useState } from 'react';
-import { useWishlistStore } from '../utils/store';
+import { AnimatePresence, motion } from 'motion/react';
+import { ShoppingCart, Menu, X, Search, Heart, Package } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useWishlistStore, useFilterStore } from '../utils/store';
+import { CATEGORY_NAV } from '../shopContent';
+import { useSiteSettings } from '../utils/siteSettings';
 import ThemeToggle from './ThemeToggle';
+import PromoMarquee from './PromoMarquee';
+import { BRAND_NAME } from '../brand';
 
 interface HeaderProps {
   cartCount: number;
@@ -11,110 +16,193 @@ interface HeaderProps {
   onOpenOrders: () => void;
 }
 
+function focusCatalogSearch() {
+  document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.setTimeout(() => document.getElementById('catalog-search')?.focus(), 400);
+}
+
 export default function Header({ cartCount, onOpenCart, onOpenWishlist, onOpenOrders }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const wishlistCount = useWishlistStore(state => state.items.length);
+  const [scrolled, setScrolled] = useState(false);
+  const wishlistCount = useWishlistStore((state) => state.items.length);
+  const setCategory = useFilterStore((s) => s.setCategory);
+  const customLabEnabled = useSiteSettings((s) => s.customLabEnabled);
+
+  const categoryNav = CATEGORY_NAV.filter(
+    (item) => item.id !== 'custom' || customLabEnabled
+  );
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const goCategory = (filter: string | null) => {
+    if (filter) setCategory(filter);
+    else setCategory('All Categories');
+    document.getElementById('catalog')?.scrollIntoView({ behavior: 'smooth' });
+    setIsMenuOpen(false);
+  };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 transition-all">
-      {/* Top Bar */}
-      <div className="bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 py-2 hidden md:block">
-        <div className="max-w-7xl mx-auto px-8 flex justify-between items-center text-[11px] font-bold uppercase tracking-widest text-zinc-400 dark:text-zinc-500">
-          <div className="flex gap-4">
-            <a href="#" className="hover:text-primary transition-colors"><Twitter className="w-3.5 h-3.5" /></a>
-            <a href="#" className="hover:text-primary transition-colors"><Instagram className="w-3.5 h-3.5" /></a>
-            <a href="#" className="hover:text-primary transition-colors"><Youtube className="w-3.5 h-3.5" /></a>
-          </div>
-          <div>
-            Free Shipping on Orders Above Rs. 5,000 | UPI, Bank Transfer, Card Demo and COD
-          </div>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Contact</a>
-            <a href="#" className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">Track Order</a>
-            <a href="#" className="hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors">FAQs</a>
-          </div>
-        </div>
-      </div>
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 bg-white dark:bg-zinc-950 transition-shadow duration-300 ${
+        scrolled ? 'shadow-[0_1px_0_#e8e8e8] dark:shadow-[0_1px_0_#27272a]' : ''
+      }`}
+    >
+      <PromoMarquee />
 
-      {/* Main Navbar */}
-      <div className="bg-white/90 dark:bg-zinc-900/90 backdrop-blur-md border-b border-zinc-200 dark:border-zinc-800">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-20 md:h-24 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Layers className="w-8 h-8 text-primary" />
-            <span className="font-serif font-black text-2xl tracking-tighter italic text-zinc-900 dark:text-zinc-100">3D by SD</span>
-          </div>
+      <div className="border-b border-[#e8e8e8] dark:border-zinc-800">
+        <div className="do-container h-[52px] md:h-14 flex items-center justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="lg:hidden p-2 -ml-2 text-[#111] dark:text-zinc-100"
+            aria-label="Menu"
+          >
+            {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
 
-          {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-10 font-bold text-xs uppercase tracking-widest text-zinc-900 dark:text-zinc-100">
-            <a href="#" className="hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary pb-1">Home</a>
-            <a href="#catalog" className="hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary pb-1">Shop</a>
-            <a href="#" className="hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary pb-1">About</a>
-            <a href="#" className="hover:text-primary transition-colors border-b-2 border-transparent hover:border-primary pb-1">Contact</a>
+          <nav className="hidden lg:flex items-center gap-8 text-[13px] font-medium text-[#111] dark:text-zinc-200">
+            <a href="#catalog" className="hover:opacity-60 transition-opacity">
+              Shop
+            </a>
+            {customLabEnabled && (
+              <a href="#custom-lab" className="hover:opacity-60 transition-opacity">
+                Custom Lab
+              </a>
+            )}
+            <Link to="/about" className="hover:opacity-60 transition-opacity">
+              About
+            </Link>
           </nav>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            <button className="p-2 hover:text-primary dark:text-zinc-400 dark:hover:text-primary transition-colors" title="Search">
-              <Search className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={onOpenWishlist}
-              className="relative p-2 hover:text-primary dark:text-zinc-400 dark:hover:text-primary transition-colors group" 
-              title="Wishlist"
+          <Link
+            to="/"
+            className="absolute left-1/2 -translate-x-1/2 text-[15px] md:text-[17px] font-semibold tracking-[0.08em] text-[#111] dark:text-white whitespace-nowrap"
+          >
+            {BRAND_NAME}
+          </Link>
+
+          <div className="flex items-center ml-auto">
+            <ThemeToggle />
+            <button
+              type="button"
+              onClick={focusCatalogSearch}
+              className="p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity"
+              title="Search catalog"
+              aria-label="Search catalog"
             >
-              <Heart className="w-5 h-5" />
+              <Search className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenWishlist}
+              className="relative p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity"
+              title="Wishlist"
+              aria-label="Wishlist"
+            >
+              <Heart className="w-5 h-5" strokeWidth={1.5} />
               {wishlistCount > 0 && (
-                <span className="absolute top-0 right-0 w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                <span className="absolute top-1.5 right-1.5 min-w-[15px] h-[15px] px-0.5 bg-[#111] dark:bg-white text-white dark:text-[#111] text-[8px] font-bold rounded-full flex items-center justify-center">
                   {wishlistCount > 9 ? '9+' : wishlistCount}
                 </span>
               )}
             </button>
-            <ThemeToggle />
-            <button onClick={onOpenOrders} className="p-2 hover:text-primary dark:text-zinc-400 dark:hover:text-primary transition-colors hidden md:block" title="Orders">
-              <User className="w-5 h-5" />
-            </button>
-            <button 
-              onClick={onOpenCart}
-              className="relative p-2 hover:text-primary dark:text-zinc-400 dark:hover:text-primary transition-colors group" 
-              title="Cart"
+            <button
+              type="button"
+              onClick={onOpenOrders}
+              className="hidden sm:block p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity"
+              title="Orders & tracking"
+              aria-label="Orders and tracking"
             >
-              <ShoppingCart className="w-5 h-5" />
+              <Package className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className="relative p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity"
+              title="Cart"
+              aria-label="Cart"
+            >
+              <ShoppingCart className="w-5 h-5" strokeWidth={1.5} />
               {cartCount > 0 && (
-                <span className="absolute top-0 right-0 w-5 h-5 bg-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                <span className="absolute top-1.5 right-1.5 min-w-[15px] h-[15px] px-0.5 bg-[#111] dark:bg-white text-white dark:text-[#111] text-[8px] font-bold rounded-full flex items-center justify-center">
                   {cartCount > 9 ? '9+' : cartCount}
                 </span>
               )}
             </button>
-
-            {/* Mobile Menu Button */}
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="lg:hidden p-2 hover:text-primary dark:text-zinc-400 dark:hover:text-primary transition-colors"
-            >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
           </div>
         </div>
-
-        {/* Mobile Menu */}
-        <AnimatePresence>
-          {isMenuOpen && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="lg:hidden border-t border-zinc-100 dark:border-zinc-800 bg-white dark:bg-zinc-900"
-            >
-              <nav className="flex flex-col gap-4 p-6 font-bold text-xs uppercase tracking-widest text-zinc-900 dark:text-zinc-100">
-                <a href="#" className="hover:text-primary transition-colors pb-2 border-b border-zinc-100 dark:border-zinc-800">Home</a>
-                <a href="#catalog" className="hover:text-primary transition-colors pb-2 border-b border-zinc-100 dark:border-zinc-800">Shop</a>
-                <a href="#" className="hover:text-primary transition-colors pb-2 border-b border-zinc-100 dark:border-zinc-800">About</a>
-                <a href="#" className="hover:text-primary transition-colors pb-2 border-b border-zinc-100 dark:border-zinc-800">Contact</a>
-                <button onClick={() => { onOpenOrders(); setIsMenuOpen(false); }} className="text-left hover:text-primary transition-colors pb-2 border-b border-zinc-100 dark:border-zinc-800">Track Order</button>
-              </nav>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
+
+      <div className="hidden md:block border-b border-[#e8e8e8] dark:border-zinc-800 bg-white dark:bg-zinc-950">
+        <div className="do-container flex items-center justify-center gap-8 lg:gap-12 h-10 text-[13px] text-[#6b6b6b] dark:text-zinc-400">
+          {categoryNav.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => goCategory(item.filter)}
+              className="font-medium hover:text-[#111] dark:hover:text-white transition-colors"
+            >
+              {item.label}
+            </button>
+          ))}
+          <span className="text-[#e8e8e8] dark:text-zinc-700">|</span>
+          <button
+            type="button"
+            onClick={onOpenOrders}
+            className="font-medium hover:text-[#111] dark:hover:text-white transition-colors"
+          >
+            Track order
+          </button>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="lg:hidden border-b border-[#e8e8e8] dark:border-zinc-800 bg-white dark:bg-zinc-950 overflow-hidden"
+          >
+            <nav className="do-container py-4 flex flex-col gap-3 text-sm font-medium">
+              <a href="#catalog" onClick={() => setIsMenuOpen(false)}>
+                Shop all
+              </a>
+              {categoryNav.map((item) => (
+                <button key={item.id} type="button" onClick={() => goCategory(item.filter)} className="text-left">
+                  {item.label}
+                </button>
+              ))}
+              {customLabEnabled && (
+                <a href="#custom-lab" onClick={() => setIsMenuOpen(false)}>
+                  Custom Lab
+                </a>
+              )}
+              <Link to="/about" onClick={() => setIsMenuOpen(false)}>
+                About
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenOrders();
+                  setIsMenuOpen(false);
+                }}
+                className="text-left"
+              >
+                Track order
+              </button>
+              <Link to="/contact" onClick={() => setIsMenuOpen(false)}>
+                Contact
+              </Link>
+            </nav>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 }

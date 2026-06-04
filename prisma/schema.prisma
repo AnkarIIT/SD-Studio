@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -27,6 +27,8 @@ model Payment {
   paymentMethod     String    // "upi", "card", "bank_transfer", "cod"
   paymentStatus     String    @default("pending") // "pending", "success", "failed", "refunded"
   paymentReference  String?   // Transaction ID, UTR, etc
+  razorpayOrderId   String?
+  razorpayPaymentId String?
   
   // Order Info
   itemCount         Int
@@ -110,25 +112,91 @@ model Order {
   customerName      String
   customerEmail     String
   customerPhone     String?
-  
-  // Order Details
-  items             String    // JSON array of items
+
+  items             String
   subtotal          Float
   tax               Float
   shipping          Float
   discount          Float
   total             Float
-  
-  // Status
-  status            String    @default("pending") // "pending", "paid", "shipped", "delivered", "cancelled"
-  
-  // Timestamps
+  status            String    @default("pending")
+  paymentMethod     String?
+  paymentReference  String?
+  couponCode        String?
+  shippingAddress   String
+
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
-  expiresAt         DateTime? // For auto-cleanup (30 days after completion)
-  
+  expiresAt         DateTime?
+
   @@index([customerId])
+  @@index([customerEmail])
   @@index([status])
   @@index([createdAt])
-  @@index([expiresAt])
+}
+
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+}
+
+model CustomLabRequest {
+  id        String   @id @default(cuid())
+  requestId String   @unique
+  name      String
+  email     String
+  details   String
+  fileName  String?
+  filePath  String?
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+model PaymentVerificationQueue {
+  id          String    @id @default(cuid())
+  orderId     String
+  method      String
+  reference   String?
+  amount      Float
+  status      String    @default("pending")
+  notes       String?
+  createdAt   DateTime  @default(now())
+  processedAt DateTime?
+
+  @@index([orderId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderTimelineEvent {
+  id        String   @id @default(cuid())
+  orderId   String
+  stage     String
+  message   String?
+  emailSent Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([createdAt])
+}
+
+model SiteConfig {
+  id        String   @id @default("global")
+  data      String
+  updatedAt DateTime @updatedAt
+}
+
+model ProductOverride {
+  productId     String   @id
+  price         Float?
+  originalPrice Float?
+  stock         Int?
+  inStock       Boolean?
+  hidden        Boolean  @default(false)
+  badge         String?
+  updatedAt     DateTime @updatedAt
 }

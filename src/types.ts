@@ -25,6 +25,9 @@ export interface Product {
   modelUrl?: string;
   materialSwatches?: string[];
   createdAt?: string;
+  badge?: string;
+  collection?: string;
+  isNew?: boolean;
 }
 
 export interface CartItem extends Product {
@@ -50,8 +53,8 @@ export interface Order {
   shipping: number;
   discount: number;
   total: number;
-  status: 'pending' | 'paid' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
-  paymentMethod: 'cod' | 'upi' | 'card' | 'bank_transfer';
+  status: 'pending' | 'pending_payment' | 'paid' | 'confirmed' | 'shipped' | 'delivered' | 'cancelled';
+  paymentMethod: 'cod' | 'upi' | 'card' | 'bank_transfer' | 'razorpay';
   paymentId?: string;
   couponCode?: string;
   shippingAddress: Address;

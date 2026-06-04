@@ -3,11 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>3D by SD | Premium 3D Studio</title>
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="3D by SD — premium 3D printed décor, collectibles & custom lab prints. Made to order in India. UPI, COD & pan-India shipping."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="3D by SD | Premium 3D Prints" />
+    <meta
+      property="og:description"
+      content="Shop 3D printed home décor, tech accessories & custom uploads. Follow @3dbysd.in on Instagram."
+    />
+    <meta property="og:image" content="/banners/shop-prints.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>3D by SD | Premium 3D Prints</title>
+    <script>
+      (function () {
+        var key = '3dbsd-theme-preference';
+        var legacy = 'lb-theme-preference';
+        var p = localStorage.getItem(key) || localStorage.getItem(legacy);
+        if (p && !localStorage.getItem(key) && localStorage.getItem(legacy)) {
+          localStorage.setItem(key, localStorage.getItem(legacy));
+          localStorage.removeItem(legacy);
+        }
+        var dark =
+          p === 'dark' ||
+          (p !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+      })();
+    </script>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

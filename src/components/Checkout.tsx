@@ -1,13 +1,17 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, X } from 'lucide-react';
+import { ArrowRight, X, ShoppingBag, MapPin, CreditCard, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Address, CartItem, Order } from '../types';
 import { formatPrice } from '../utils/formatting';
 import { getOrderTotals, isValidCoupon } from '../utils/commerce';
 import { addressSchema, validateForm } from '../utils/validation';
 import { useCartStore, useOrderStore } from '../utils/store';
+import { saveOrderToServer } from '../utils/ordersApi';
+import { useSiteSettings } from '../utils/siteSettings';
 import Payment from './Payment';
+import CheckoutSummary from './CheckoutSummary';
+import { BRAND_NAME } from '../brand';
 
 interface CheckoutProps {
   isOpen: boolean;
@@ -17,18 +21,27 @@ interface CheckoutProps {
 }
 
 const emptyAddress: Address = {
-  fullName: '',
-  email: '',
-  phone: '',
-  street: '',
-  city: '',
-  state: '',
-  pincode: '',
-  country: 'India',
+  fullName: '', email: '', phone: '',
+  street: '', city: '', state: '', pincode: '', country: 'India',
 };
 
 const createOrderId = () =>
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+
+const steps = [
+  { id: 'cart', label: 'Cart', icon: ShoppingBag },
+  { id: 'shipping', label: 'Shipping', icon: MapPin },
+  { id: 'payment', label: 'Payment', icon: CreditCard },
+];
+
+const fields: Array<[keyof Address, string, string]> = [
+  ['fullName', 'Full Name', 'text'],
+  ['email', 'Email Address', 'email'],
+  ['phone', 'Phone Number', 'tel'],
+  ['city', 'City', 'text'],
+  ['state', 'State', 'text'],
+  ['pincode', 'Pincode', 'tel'],
+];
 
 export default function Checkout({ isOpen, items, onClose, onComplete }: CheckoutProps) {
   const [address, setAddress] = useState<Address>(emptyAddress);
@@ -38,36 +51,36 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: Checkou
   const [pendingOrder, setPendingOrder] = useState<Order | null>(null);
   const addOrder = useOrderStore(state => state.addOrder);
   const clearCart = useCartStore(state => state.clearCart);
+  const freeShippingThreshold = useSiteSettings((s) => s.freeShippingThreshold);
+  const coupons = useSiteSettings((s) => s.coupons);
 
-  const totals = useMemo(() => getOrderTotals(items, appliedCoupon), [items, appliedCoupon]);
+  const totals = useMemo(
+    () => getOrderTotals(items, appliedCoupon, { freeShippingThreshold, coupons }),
+    [items, appliedCoupon, freeShippingThreshold, coupons]
+  );
+  const currentStep = pendingOrder ? 'payment' : 'shipping';
 
   const updateAddress = (field: keyof Address, value: string) => {
-    setAddress(current => ({ ...current, [field]: value }));
-    setErrors(current => {
-      const next = { ...current };
-      delete next[field];
-      return next;
-    });
+    setAddress(cur => ({ ...cur, [field]: value }));
+    setErrors(cur => { const n = { ...cur }; delete n[field]; return n; });
   };
 
   const applyCoupon = () => {
-    const normalized = couponCode.trim().toUpperCase();
-    if (!normalized) {
-      setAppliedCoupon('');
-      return;
-    }
-
-    if (!isValidCoupon(normalized)) {
-      toast.error('Invalid coupon code');
-      return;
-    }
-
-    setAppliedCoupon(normalized);
-    toast.success('Coupon applied');
+    const code = couponCode.trim().toUpperCase();
+    if (!code) { setAppliedCoupon(''); return; }
+    if (!isValidCoupon(code, coupons)) { toast.error('Invalid coupon code'); return; }
+    setAppliedCoupon(code);
+    toast.success('Coupon applied! 🎉');
   };
 
-  const finishOrder = (order: Order) => {
+  const finishOrder = async (order: Order) => {
     addOrder(order);
+    const saved = await saveOrderToServer(order);
+    if (saved.success) {
+      toast.success('Order saved to your account');
+    } else if (saved.error) {
+      toast('Order confirmed locally — server sync pending', { icon: '⚠️', duration: 4000 });
+    }
     clearCart();
     setAddress(emptyAddress);
     setAppliedCoupon('');
@@ -78,19 +91,15 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: Checkou
 
   const submitOrder = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (items.length === 0) {
-      toast.error('Your cart is empty');
-      return;
-    }
-
+    if (items.length === 0) { toast.error('Your cart is empty'); return; }
     const validation = validateForm(addressSchema, address);
     if (!validation.success) {
       setErrors(validation.errors);
       toast.error('Please check your shipping details');
       return;
     }
-
+    const shippingAddress = validation.data as Address;
+    setAddress(shippingAddress);
     const now = new Date().toISOString();
     const order: Order = {
       id: createOrderId(),
@@ -99,11 +108,10 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: Checkou
       status: 'pending',
       paymentMethod: 'upi',
       couponCode: appliedCoupon || undefined,
-      shippingAddress: address,
+      shippingAddress,
       createdAt: now,
       updatedAt: now,
     };
-
     setPendingOrder(order);
   };
 
@@ -111,6 +119,7 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: Checkou
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -119,130 +128,173 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: Checkou
             onClick={onClose}
           />
 
+          {/* Modal */}
           <motion.div
-            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+            initial={{ opacity: 0, y: 28, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 24, scale: 0.98 }}
-            className="relative w-full max-w-6xl max-h-[92vh] overflow-y-auto bg-white dark:bg-zinc-900 shadow-2xl transition-colors duration-300"
+            exit={{ opacity: 0, y: 28, scale: 0.97 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="relative w-full max-w-6xl max-h-[92vh] overflow-y-auto bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl"
           >
-            <div className="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 md:px-10 py-6 flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Secure Checkout</p>
-                <h2 className="text-3xl font-serif font-black italic tracking-tighter text-zinc-900 dark:text-zinc-100">
-                  {pendingOrder ? 'Payment' : 'Shipping'}
-                </h2>
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 md:px-10 py-5 flex items-center justify-between rounded-t-2xl">
+              <div className="flex items-center gap-8">
+                <div>
+                  <p className="do-eyebrow">{BRAND_NAME}</p>
+                  <h2 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Checkout</h2>
+                </div>
+
+                {/* Step indicator */}
+                <div className="hidden md:flex items-center gap-1">
+                  {steps.map((step, i) => {
+                    const isDone = step.id === 'cart' || (step.id === 'shipping' && currentStep === 'payment');
+                    const isActive = step.id === currentStep;
+                    const Icon = step.icon;
+                    return (
+                      <div key={step.id} className="flex items-center gap-1">
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider transition-all ${
+                          isActive ? 'bg-[#111] dark:bg-white text-white dark:text-[#111]' :
+                          isDone ? 'bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-400' :
+                          'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500'
+                        }`}>
+                          {isDone ? <CheckCircle2 className="w-3 h-3" /> : <Icon className="w-3 h-3" />}
+                          {step.label}
+                        </div>
+                        {i < steps.length - 1 && (
+                          <div className={`w-6 h-px ${isDone ? 'bg-green-400 dark:bg-green-700' : 'bg-zinc-200 dark:bg-zinc-700'}`} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-              <button onClick={onClose} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-500 dark:text-zinc-400" title="Close checkout">
-                <X className="w-6 h-6" />
+
+              <button
+                onClick={onClose}
+                className="p-2 rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors text-zinc-400 dark:text-zinc-500"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {pendingOrder ? (
-              <Payment
-                order={pendingOrder}
-                items={items}
-                address={address}
-                onBack={() => setPendingOrder(null)}
-                onComplete={finishOrder}
-              />
-            ) : (
-            <form onSubmit={submitOrder} className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-0">
-              <div className="p-6 md:p-10 space-y-10">
-                <section>
-                  <h3 className="font-black uppercase tracking-[0.2em] text-xs mb-5 text-zinc-900 dark:text-zinc-100">Shipping Details</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {[
-                      ['fullName', 'Full name'],
-                      ['email', 'Email'],
-                      ['phone', 'Phone'],
-                      ['city', 'City'],
-                      ['state', 'State'],
-                      ['pincode', 'Pincode'],
-                    ].map(([field, label]) => (
-                      <label key={field} className="block">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">{label}</span>
-                        <input
-                          value={address[field as keyof Address]}
-                          onChange={(e) => updateAddress(field as keyof Address, e.target.value)}
-                          placeholder={label}
-                          type={field === 'email' ? 'email' : field === 'phone' || field === 'pincode' ? 'tel' : 'text'}
-                          className={`mt-2 w-full border p-4 text-sm font-bold outline-none focus:border-primary bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-all ${
-                            errors[field] ? 'border-red-400 dark:border-red-900' : 'border-zinc-200 dark:border-zinc-800'
-                          }`}
-                        />
-                        {errors[field] && <span className="text-[10px] text-red-600 dark:text-red-400 font-bold">{errors[field]}</span>}
-                      </label>
-                    ))}
-                    <label className="block md:col-span-2">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500">Street address</span>
-                      <textarea
-                        value={address.street}
-                        onChange={(e) => updateAddress('street', e.target.value)}
-                        placeholder="Street address"
-                        rows={3}
-                        className={`mt-2 w-full border p-4 text-sm font-bold outline-none focus:border-primary resize-none bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-all ${
-                          errors.street ? 'border-red-400 dark:border-red-900' : 'border-zinc-200 dark:border-zinc-800'
-                        }`}
-                      />
-                      {errors.street && <span className="text-[10px] text-red-600 dark:text-red-400 font-bold">{errors.street}</span>}
-                    </label>
-                  </div>
-                </section>
-              </div>
-
-              <aside className="bg-zinc-50 dark:bg-zinc-900/50 border-l border-zinc-100 dark:border-zinc-800 p-6 md:p-8 space-y-6 transition-colors">
-                <h3 className="font-black uppercase tracking-[0.2em] text-xs text-zinc-900 dark:text-zinc-100">Order Summary</h3>
-                <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
-                  {items.map(item => (
-                    <div key={item.id} className="flex gap-3">
-                      <img src={item.image} alt={item.name} className="w-16 h-16 object-cover bg-white dark:bg-zinc-800 border border-zinc-100 dark:border-zinc-800" />
-                      <div className="flex-1">
-                        <p className="font-black uppercase text-xs leading-tight text-zinc-900 dark:text-zinc-100">{item.name}</p>
-                        <p className="text-[10px] text-zinc-400 dark:text-zinc-500 font-bold mt-1">Qty {item.quantity}</p>
-                      </div>
-                      <span className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{formatPrice(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex gap-2">
-                  <input
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
-                    placeholder="Coupon code"
-                    className="flex-1 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 text-xs font-bold uppercase outline-none focus:border-primary text-zinc-900 dark:text-zinc-100 transition-all"
-                  />
-                  <button type="button" onClick={applyCoupon} className="px-4 bg-zinc-900 dark:bg-zinc-800 text-white text-[10px] font-black uppercase tracking-widest hover:bg-zinc-800 dark:hover:bg-zinc-700 transition-colors">
-                    Apply
-                  </button>
-                </div>
-
-                <div className="space-y-3 text-sm border-t border-zinc-200 dark:border-zinc-800 pt-5">
-                  <div className="flex justify-between text-zinc-600 dark:text-zinc-400"><span>Subtotal</span><span className="text-zinc-900 dark:text-zinc-100">{formatPrice(totals.subtotal)}</span></div>
-                  <div className="flex justify-between text-zinc-600 dark:text-zinc-400"><span>Discount</span><span className="text-green-600 dark:text-green-400">-{formatPrice(totals.discount)}</span></div>
-                  <div className="flex justify-between text-zinc-600 dark:text-zinc-400"><span>GST</span><span className="text-zinc-900 dark:text-zinc-100">{formatPrice(totals.tax)}</span></div>
-                  <div className="flex justify-between text-zinc-600 dark:text-zinc-400"><span>Shipping</span><span className="text-zinc-900 dark:text-zinc-100">{totals.shipping === 0 ? 'FREE' : formatPrice(totals.shipping)}</span></div>
-                  <div className="flex justify-between items-end border-t border-zinc-200 dark:border-zinc-800 pt-4">
-                    <span className="font-black uppercase tracking-widest text-xs text-zinc-900 dark:text-zinc-100">Total</span>
-                    <span className="text-3xl font-serif font-black italic text-primary">{formatPrice(totals.total)}</span>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-4 bg-primary text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 hover:bg-primary-dark disabled:opacity-60 transition-colors"
+            {/* Content */}
+            <AnimatePresence mode="wait">
+              {pendingOrder ? (
+                <motion.div
+                  key="payment"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.25 }}
                 >
-                  Continue to Payment
-                  <ArrowRight className="w-4 h-4" />
-                </button>
+                  <Payment
+                    order={pendingOrder}
+                    items={items}
+                    address={address}
+                    onBack={() => setPendingOrder(null)}
+                    onComplete={finishOrder}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="shipping"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.25 }}
+                >
+                  <form onSubmit={submitOrder} className="grid grid-cols-1 lg:grid-cols-[1fr_360px]">
+                    {/* Shipping form */}
+                    <div className="p-6 md:p-10 space-y-8">
+                      <div>
+                        <p className="text-sm text-zinc-500 mb-1">Step 1 of 2</p>
+                        <h3 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Delivery details</h3>
+                        <p className="text-sm text-zinc-500 mt-1">Where should we ship your prints?</p>
+                      </div>
 
-                <div className="flex items-start gap-3 text-zinc-500 text-xs leading-relaxed">
-                  <span className="w-2 h-2 rounded-full bg-green-600 mt-1.5 flex-shrink-0" />
-                  <span>No paid gateway required. The next step supports UPI reference, bank transfer, card demo, and cash on delivery.</span>
-                </div>
-              </aside>
-            </form>
-            )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {fields.map(([field, label, type]) => (
+                          <label key={field} className="block">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-1.5 block">
+                              {label}
+                            </span>
+                            <input
+                              value={address[field]}
+                              onChange={e => updateAddress(field, e.target.value)}
+                              placeholder={label}
+                              type={type}
+                              className={`w-full border rounded-xl p-3.5 text-sm font-semibold outline-none focus:border-primary bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-600 ${
+                                errors[field] ? 'border-red-400 dark:border-red-700 bg-red-50 dark:bg-red-950/20' : 'border-zinc-200 dark:border-zinc-700'
+                              }`}
+                            />
+                            {errors[field] && (
+                              <span className="text-[10px] text-red-500 dark:text-red-400 font-bold mt-1 block">{errors[field]}</span>
+                            )}
+                          </label>
+                        ))}
+
+                        <label className="block md:col-span-2">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 dark:text-zinc-500 mb-1.5 block">
+                            Street Address
+                          </span>
+                          <textarea
+                            value={address.street}
+                            onChange={e => updateAddress('street', e.target.value)}
+                            placeholder="House No., Street, Area, Landmark"
+                            rows={2}
+                            className={`w-full border rounded-xl p-3.5 text-sm font-semibold outline-none focus:border-primary resize-none bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 transition-all placeholder:text-zinc-300 dark:placeholder:text-zinc-600 ${
+                              errors.street ? 'border-red-400 dark:border-red-700 bg-red-50 dark:bg-red-950/20' : 'border-zinc-200 dark:border-zinc-700'
+                            }`}
+                          />
+                          {errors.street && (
+                            <span className="text-[10px] text-red-500 dark:text-red-400 font-bold mt-1 block">{errors.street}</span>
+                          )}
+                        </label>
+                      </div>
+                    </div>
+
+                    <CheckoutSummary
+                      items={items}
+                      subtotal={totals.subtotal}
+                      discount={totals.discount}
+                      tax={totals.tax}
+                      shipping={totals.shipping}
+                      total={totals.total}
+                    >
+                      <div className="flex gap-2">
+                        <input
+                          value={couponCode}
+                          onChange={(e) => setCouponCode(e.target.value)}
+                          placeholder="Coupon code"
+                          className="flex-1 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm outline-none focus:border-primary"
+                        />
+                        <button
+                          type="button"
+                          onClick={applyCoupon}
+                          className="px-4 text-sm font-medium text-zinc-700 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-600 rounded-lg hover:border-primary hover:text-primary transition-colors"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                      {appliedCoupon && (
+                        <p className="text-xs text-green-600 dark:text-green-400 -mt-2">
+                          Coupon {appliedCoupon} applied
+                        </p>
+                      )}
+                      <button
+                        type="submit"
+                        className="do-btn-primary w-full py-3.5 flex items-center justify-center gap-2"
+                      >
+                        Continue to payment
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                      <p className="text-xs text-zinc-400 text-center">UPI · Bank · COD · No gateway fees</p>
+                    </CheckoutSummary>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
       )}

@@ -44,8 +44,8 @@ export default function Cart({ items, isOpen, onClose, onUpdateQuantity, onRemov
       >
         <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <ShoppingCart className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold uppercase tracking-tighter italic text-zinc-900 dark:text-zinc-100">Shopping Bag</h2>
+            <ShoppingCart className="w-6 h-6" />
+            <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Your bag</h2>
           </div>
           <button 
             onClick={onClose}
@@ -124,7 +124,7 @@ export default function Cart({ items, isOpen, onClose, onUpdateQuantity, onRemov
                           +
                         </button>
                       </div>
-                      <span className="font-bold text-sm text-primary">
+                      <span className="font-bold text-sm text-[#111] dark:text-white">
                         {formatPrice(item.price * item.quantity)}
                       </span>
                     </div>
@@ -157,7 +157,7 @@ export default function Cart({ items, isOpen, onClose, onUpdateQuantity, onRemov
 
             <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-end">
               <span className="text-zinc-600 dark:text-zinc-400 font-black uppercase tracking-widest text-xs">Total</span>
-              <span className="text-3xl font-serif font-black tracking-tighter italic text-primary">
+              <span className="text-2xl font-semibold text-[#111] dark:text-white">
                 {formatPrice(total)}
               </span>
             </div>
@@ -165,7 +165,7 @@ export default function Cart({ items, isOpen, onClose, onUpdateQuantity, onRemov
             <button 
               onClick={handleCheckout}
               disabled={items.length === 0}
-              className="w-full py-4 bg-primary text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-4 hover:bg-primary-dark transition-all disabled:opacity-50 disabled:cursor-not-allowed group hvr-sweep-to-right rounded"
+              className="do-btn-primary w-full py-4 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               Proceed to Checkout
               <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />

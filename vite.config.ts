@@ -16,8 +16,8 @@ export default defineConfig(({mode}) => {
       },
     },
     server: {
-      port: 3000,
-      strictPort: true,
+      port: Number(env.PORT) || 3000,
+      strictPort: false,
       proxy: {
         '/api': {
           target: env.NOTIFICATION_PORT

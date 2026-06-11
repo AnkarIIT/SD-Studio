@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "dev:all": "npm run db:push && concurrently -n api,web -c blue,green \"npm run server\" \"npm run dev\"",
-    "build": "prisma generate && vite build",
+    "build": "vite build",
+    "prisma:generate": "prisma generate",
     "preview": "vite preview",
     "server": "tsx watch server.ts",
     "db:push": "prisma db push",

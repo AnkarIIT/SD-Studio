@@ -33,7 +33,7 @@ export default function BestSellers({ products, onAddToCart, onOpenDetail }: Bes
     <section className="py-12 md:py-16 do-section-alt">
       <div className="do-container">
         <div className="do-section-header">
-          <h2 className="do-section-title">Featured</h2>
+          <h2 className="do-section-title">Featured Drops</h2>
           <a href="#catalog" className="do-link">
             View all
           </a>

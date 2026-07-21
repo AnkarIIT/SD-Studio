@@ -1,181 +1,118 @@
 import { motion } from 'motion/react';
-import { ArrowRight, Layers, Cpu, Zap, Star } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Sparkles, Truck, Users } from 'lucide-react';
 
-const materials = ['PLA', 'ABS', 'PETG', 'TPU', 'Resin', 'CF-ASA', 'Silk PLA', 'Wood Fill'];
-
-const stats = [
-  { value: '0.1mm', label: 'Layer Precision' },
-  { value: '12+', label: 'Materials' },
-  { value: '500+', label: 'Orders Shipped' },
-  { value: '4.8★', label: 'Avg. Rating' },
+const heroStats = [
+  { label: 'Made to order', icon: Sparkles },
+  { label: 'Premium quality', icon: ShieldCheck },
+  { label: 'Made in India', icon: Truck },
 ];
 
-const features = [
-  { icon: Layers, label: 'FDM & Resin Printing' },
-  { icon: Cpu, label: 'Parametric Design' },
-  { icon: Zap, label: '1–7 Day Dispatch' },
-  { icon: Star, label: 'Custom Lab Available' },
+const heroBadges = [
+  { text: 'Made to order', icon: Sparkles },
+  { text: 'Premium quality', icon: ShieldCheck },
+  { text: 'Made in India', icon: Truck },
 ];
 
-const floatingProducts = [
-  { seed: 'lamp3d', label: 'Voronoi Lamp', material: 'Recycled PLA', price: '₹7,499', delay: 0, href: '#catalog' },
-  { seed: 'dragon3d', label: 'Void Drake', material: 'Silk PLA', price: '₹2,899', delay: 0.15, href: '#catalog' },
-  { seed: 'keyboard3d', label: 'Cyberdeck', material: 'CF-ASA', price: '₹9,999', delay: 0.3, href: '#catalog' },
+const productCards = [
+  { title: 'Custom Keychain', image: '/categories/home-decor.jpg', price: '₹199' },
+  { title: 'NFC Social Stand', image: '/categories/collectibles.jpg', price: '₹499' },
+  { title: 'Name Plate', image: '/categories/tech-accessories.jpg', price: '₹299' },
+  { title: 'Pixel Lamp', image: '/categories/collectibles.jpg', price: '₹599' },
 ];
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden bg-white dark:bg-zinc-950 pt-36 pb-0">
-      {/* Animated background grid */}
-      <div className="absolute inset-0 hero-grid-bg opacity-[0.035] dark:opacity-[0.06] pointer-events-none" />
+    <section className="relative overflow-hidden bg-[#f8f2ff] dark:bg-[#09080f] pt-24 pb-20">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(161,146,255,0.28),transparent_20%),radial-gradient(circle_at_bottom_right,rgba(145,99,255,0.14),transparent_20%)] pointer-events-none" />
+      <div className="do-container relative grid gap-12 lg:grid-cols-12 items-center">
+        <div className="lg:col-span-7 xl:col-span-6 relative z-10">
+          <motion.span
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="inline-flex items-center gap-2 rounded-full border border-[#d6c0ff] bg-[#f2ebff] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.35em] text-[#7d55ff] shadow-sm"
+          >
+            LEVEL UP YOUR SPACE
+          </motion.span>
 
-      {/* Top bar — material ticker */}
-      <div className="border-y border-zinc-100 dark:border-zinc-800 overflow-hidden py-3 mb-16">
-        <motion.div
-          className="flex gap-10 whitespace-nowrap"
-          animate={{ x: ['0%', '-50%'] }}
-          transition={{ duration: 22, repeat: Infinity, ease: 'linear' }}
-        >
-          {[...materials, ...materials].map((m, i) => (
-            <span key={i} className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400 dark:text-zinc-600">
-              ◆ {m}
-            </span>
-          ))}
-        </motion.div>
-      </div>
+          <motion.h1
+            initial={{ opacity: 0, x: -32 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+            className="mt-8 text-5xl sm:text-6xl lg:text-[4.25rem] font-black tracking-[-0.04em] text-[#111] dark:text-white leading-[0.95]"
+          >
+            Custom Products.
+            <span className="block text-[#8f5bff]">Made Just For You.</span>
+          </motion.h1>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
-        {/* Main headline */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start mb-20">
-          <div className="lg:col-span-7 xl:col-span-6">
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="inline-flex items-center gap-2 border border-primary/30 bg-red-50 dark:bg-red-950/30 px-4 py-2 rounded-full mb-8"
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.2 }}
+            className="mt-6 max-w-xl text-base sm:text-lg text-[#4f4f5a] dark:text-zinc-300 leading-relaxed"
+          >
+            Personalized accessories, creator essentials, and aesthetic pieces 3D printed with detail.
+          </motion.p>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.3 }}
+            className="mt-10 flex flex-wrap gap-4"
+          >
+            <a
+              href="#catalog"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#6f4bff] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-[#6f4bff]/20 transition hover:bg-[#5836d9]"
             >
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              <span className="text-[10px] font-black uppercase tracking-[0.35em] text-primary">
-                Next-Gen 3D Fabrication · India
-              </span>
-            </motion.div>
-
-            <motion.h1
-              initial={{ opacity: 0, x: -40 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.9, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="text-4xl sm:text-5xl lg:text-6xl font-bold leading-[1.1] tracking-tight text-zinc-900 dark:text-zinc-100 mb-6"
+              Explore Shop
+              <ArrowRight className="w-4 h-4" />
+            </a>
+            <a
+              href="#custom-lab"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-[#beb5ff] bg-white/90 px-6 py-3 text-sm font-semibold text-[#302a4c] transition hover:border-[#6f4bff] hover:text-[#6f4bff]"
             >
-              Shop 3D printed
-              <span className="text-primary block">objects you can actually use</span>
-            </motion.h1>
+              Customize Now
+            </a>
+          </motion.div>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.35 }}
-              className="text-base sm:text-lg text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-md mb-8"
-            >
-              Lamps, desk accessories, collectibles & tech parts — made to order in India,
-              shipped to your door. Prices in ₹, GST included.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.45 }}
-              className="flex flex-wrap gap-4"
-            >
-              <a
-                href="#catalog"
-                className="group inline-flex items-center gap-2 px-6 py-3.5 bg-primary text-white font-semibold text-sm hover:bg-primary-dark transition-all rounded-lg shadow-md shadow-primary/20 btn-glow"
-              >
-                Browse all products
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </a>
-              <a
-                href="#custom-lab"
-                className="inline-flex items-center gap-2 px-6 py-3.5 border border-zinc-300 dark:border-zinc-600 text-zinc-800 dark:text-zinc-200 font-semibold text-sm hover:border-primary hover:text-primary transition-all rounded-lg bg-white/80 dark:bg-zinc-900/80"
-              >
-                Custom print request
-              </a>
-            </motion.div>
-
-            {/* Feature pills */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.8, delay: 0.6 }}
-              className="flex flex-wrap gap-3 mt-10"
-            >
-              {features.map(({ icon: Icon, label }) => (
-                <div key={label} className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 px-3 py-2 rounded-lg">
-                  <Icon className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-400">{label}</span>
-                </div>
-              ))}
-            </motion.div>
-          </div>
-
-          {/* Floating product cards */}
-          <div className="lg:col-span-5 xl:col-span-6 relative hidden lg:flex flex-col gap-5 pt-4">
-            {floatingProducts.map((p, i) => (
-              <motion.a
-                href={p.href}
-                key={p.seed}
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 + p.delay, ease: [0.16, 1, 0.3, 1] }}
-                whileHover={{ y: -4, transition: { duration: 0.25 } }}
-                className={`flex items-center gap-5 bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 rounded-2xl p-4 shadow-xl shadow-zinc-100 dark:shadow-zinc-950 cursor-pointer hover:border-primary/40 transition-colors ${i === 1 ? 'ml-12' : i === 2 ? 'ml-6' : ''}`}
-              >
-                <div className="w-20 h-20 rounded-xl overflow-hidden bg-zinc-50 dark:bg-zinc-800 flex-shrink-0">
-                  <img
-                    src={`https://picsum.photos/seed/${p.seed}/200/200`}
-                    alt={p.label}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-black uppercase tracking-widest text-[10px] text-zinc-900 dark:text-zinc-100 truncate">{p.label}</p>
-                  <p className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider mt-0.5">{p.material}</p>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-lg font-serif font-black italic text-primary">{p.price}</span>
-                    <span className="text-[8px] font-black uppercase tracking-widest bg-primary/10 text-primary px-2 py-0.5 rounded-full">⚡ MTO</span>
-                  </div>
-                </div>
-              </motion.a>
-            ))}
-
-            {/* Promo card */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.75 }}
-              className="ml-4 flex items-center gap-4 bg-primary text-white rounded-2xl p-5"
-            >
-              <div className="text-5xl font-serif font-black italic leading-none">10%</div>
-              <div>
-                <p className="font-black uppercase tracking-widest text-[10px] mb-0.5">First Order Discount</p>
-                <p className="text-[9px] font-bold tracking-widest opacity-70 uppercase">Code: SD3D_FIRST_10</p>
+          <div className="mt-10 grid gap-3 sm:grid-cols-3">
+            {heroBadges.map((badge) => (
+              <div key={badge.text} className="flex items-center gap-3 rounded-full border border-[#e7defd] bg-white/90 px-4 py-3 shadow-sm">
+                <badge.icon className="w-4 h-4 text-[#6f4bff]" />
+                <span className="text-sm font-semibold text-[#555] dark:text-zinc-300">{badge.text}</span>
               </div>
-            </motion.div>
+            ))}
           </div>
         </div>
 
-        {/* Stats bar */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.7 }}
-          className="grid grid-cols-2 md:grid-cols-4 border-t border-zinc-100 dark:border-zinc-800"
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.9, delay: 0.15 }}
+          className="lg:col-span-5 xl:col-span-6 relative z-10"
         >
-          {stats.map((s, i) => (
-            <div key={s.label} className={`py-8 px-6 text-center ${i < 3 ? 'border-r border-zinc-100 dark:border-zinc-800' : ''}`}>
-              <div className="text-3xl md:text-4xl font-serif font-black italic text-zinc-900 dark:text-zinc-100 mb-1">{s.value}</div>
-              <div className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 dark:text-zinc-500">{s.label}</div>
+          <div className="relative overflow-hidden rounded-[2.5rem] border border-[#d6c0ff] bg-[#fff7ff] shadow-[0_30px_80px_rgba(111,75,255,0.12)]">
+            <img
+              src="/banners/shop-prints.jpg"
+              alt="3DbySD hero product display"
+              className="w-full h-[520px] object-cover sm:h-[560px]"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-white/95 to-transparent px-6 py-5">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {productCards.map((item) => (
+                  <div key={item.title} className="flex items-center gap-3 rounded-2xl bg-white/90 px-4 py-3 shadow-sm">
+                    <div className="w-14 h-14 overflow-hidden rounded-2xl bg-[#f5f0ff]">
+                      <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.24em] text-[#7f6be0]">{item.title}</p>
+                      <p className="text-sm font-semibold text-[#111]">{item.price}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+          </div>
         </motion.div>
       </div>
     </section>

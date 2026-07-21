@@ -10,7 +10,7 @@ export default function CollectionsGrid() {
   };
 
   return (
-    <section className="py-12 md:py-16 do-section-alt">
+    <section className="py-12 md:py-16 bg-[#15072f]">
       <div className="do-container">
         <div className="do-section-header">
           <h2 className="do-section-title">Shop by collection</h2>
@@ -36,7 +36,7 @@ export default function CollectionsGrid() {
                   referrerPolicy="no-referrer"
                 />
               </div>
-              <h3 className="text-sm font-semibold text-[#111] dark:text-white">{col.title}</h3>
+              <h3 className="text-sm font-semibold text-[#f4e9ff]">{col.title}</h3>
             </button>
           ))}
         </div>

@@ -29,65 +29,60 @@ export default function ShopProductCard({
 
   return (
     <article
-      className={`product-card-do flex flex-col ${
+      className={`floppy-card flex flex-col ${
         compact ? 'w-[min(100%,190px)] sm:w-[220px] md:w-[240px] flex-shrink-0 snap-start' : 'w-full'
       }`}
     >
-      <div className="text-left w-full group/card">
-        <div className="relative aspect-square overflow-hidden bg-[#f5f5f5] dark:bg-zinc-800">
-          <Link to={productUrl} className="block w-full h-full" onClick={openDetail}>
+      <div className="floppy-card-top group/card">
+        <div className="floppy-card-tab" />
+        <Link to={productUrl} className="block overflow-hidden rounded-[1.5rem]" onClick={openDetail}>
+          <div className="floppy-card-window relative">
             <img
               src={product.image}
               alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-[1.03]"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover/card:scale-[1.03]"
               referrerPolicy="no-referrer"
             />
-          </Link>
+          </div>
+        </Link>
+      </div>
+      <div className="px-4 py-4">
+        <div className="flex items-center justify-between gap-2 mb-3">
           {product.isNew && (
-            <span className="absolute top-2 left-2 text-[9px] font-semibold uppercase tracking-wider bg-white text-[#111] px-2 py-1 pointer-events-none">
-              New
-            </span>
+            <span className="floppy-card-label">NEW</span>
           )}
           {promoBadge && (
-            <span className="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wider bg-[#111] text-white px-2 py-1 pointer-events-none">
-              {promoBadge}
-            </span>
-          )}
-          {!canPurchase && (
-            <span className="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-zinc-900/70 text-xs font-semibold uppercase tracking-wider pointer-events-none">
-              Sold out
-            </span>
-          )}
-          {canPurchase && (
-            <button
-              type="button"
-              onClick={() => onAddToCart(product)}
-              className="absolute bottom-0 left-0 right-0 py-3 bg-[#111] dark:bg-white dark:text-[#111] text-white text-[10px] font-semibold uppercase tracking-[0.15em] translate-y-0 md:translate-y-full md:group-hover/card:translate-y-0 transition-transform duration-300 flex items-center justify-center gap-1.5 z-10"
-            >
-              <ShoppingCart className="w-3.5 h-3.5" />
-              Add to bag
-            </button>
+            <span className="floppy-card-label">{promoBadge}</span>
           )}
         </div>
-        <div className="pt-3 pb-1">
-          <Link
-            to={productUrl}
-            onClick={openDetail}
-            className="text-sm font-medium text-[#111] dark:text-zinc-100 line-clamp-2 leading-snug hover:opacity-70 block"
-          >
-            {product.name}
-          </Link>
-          <div className="flex flex-wrap items-baseline gap-2 mt-1.5">
-            <span className="text-sm font-semibold text-[#111] dark:text-white tabular-nums">
-              {formatPrice(product.price)}
+
+        <Link
+          to={productUrl}
+          onClick={openDetail}
+          className="block text-sm font-semibold uppercase tracking-[0.16em] text-[#f4e9ff] hover:text-[#ffb4fa] transition-colors leading-snug line-clamp-2"
+        >
+          {product.name}
+        </Link>
+
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <p className="floppy-card-price">{formatPrice(product.price)}</p>
+          {product.originalPrice && product.originalPrice > product.price && (
+            <span className="text-[11px] text-[#dcc7ff] line-through">
+              {formatPrice(product.originalPrice)}
             </span>
-            {product.originalPrice && product.originalPrice > product.price && (
-              <span className="text-xs text-[#6b6b6b] line-through tabular-nums">
-                {formatPrice(product.originalPrice)}
-              </span>
-            )}
-          </div>
+          )}
         </div>
+      </div>
+      <div className="floppy-card-footer">
+        <button
+          type="button"
+          disabled={!canPurchase}
+          onClick={() => onAddToCart(product)}
+          className="floppy-card-button w-full"
+        >
+          <ShoppingCart className="w-3.5 h-3.5" />
+          Add
+        </button>
       </div>
     </article>
   );

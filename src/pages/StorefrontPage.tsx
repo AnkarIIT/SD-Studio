@@ -1,27 +1,28 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import Header from '../components/Header';
-import HeroCarousel from '../components/HeroCarousel';
-import TrustBar from '../components/TrustBar';
-import CategoryTiles from '../components/CategoryTiles';
-import BestSellers from '../components/BestSellers';
-import CollectionsGrid from '../components/CollectionsGrid';
+import HeaderReplica from '../components/HeaderReplica';
+import HeroReplica from '../components/HeroReplica';
 import ProductGrid from '../components/ProductGrid';
+import MarqueeReplica from '../components/MarqueeReplica';
 import Cart from '../components/Cart';
 import Checkout from '../components/Checkout';
 import Wishlist from '../components/Wishlist';
 import OrderHistory from '../components/OrderHistory';
 
-import CustomLab from '../components/CustomLab';
-import NewsletterSubscription from '../components/NewsletterSubscription';
+import HowItWorksReplica from '../components/HowItWorksReplica';
+import UploadEstimatorReplica from '../components/UploadEstimatorReplica';
+import ReasonsReplica from '../components/ReasonsReplica';
+import ReviewsReplica from '../components/ReviewsReplica';
+import ClosingCTAReplica from '../components/ClosingCTAReplica';
+
+import FooterReplica from '../components/FooterReplica';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { Order, Product } from '../types';
 import { useProducts } from '../hooks/useProducts';
 import { fetchSiteConfigFromServer } from '../utils/catalogApi';
 import { motion } from 'motion/react';
 import { Layers, ArrowUp } from 'lucide-react';
-import Footer from '../components/Footer';
 import { useCartStore, useFilterStore } from '../utils/store';
 import { useSiteSettings } from '../utils/siteSettings';
 import toast from 'react-hot-toast';
@@ -39,8 +40,6 @@ export default function StorefrontPage() {
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   const maintenanceMode = useSiteSettings((s) => s.maintenanceMode);
-  const customLabEnabled = useSiteSettings((s) => s.customLabEnabled);
-  const newsletterEnabled = useSiteSettings((s) => s.newsletterEnabled);
   const updateSiteSettings = useSiteSettings((s) => s.update);
 
   const { products, loading: catalogLoading } = useProducts();
@@ -122,6 +121,10 @@ export default function StorefrontPage() {
     toast.success(`${product.name} added to cart`);
   };
 
+  const handleOpenProductDetail = (product: Product) => {
+    navigate(`/product/${product.id}`);
+  };
+
   const handleUpdateQuantity = (id: string, delta: number) => {
     const item = cartItems.find((cartItem) => cartItem.id === id);
     if (!item) return;
@@ -159,34 +162,25 @@ export default function StorefrontPage() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col font-sans">
-        <Header
-          cartCount={totalItems}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenWishlist={() => setIsWishlistOpen(true)}
-          onOpenOrders={() => setIsOrdersOpen(true)}
-        />
+        <HeaderReplica onOpenCart={() => setIsCartOpen(true)} onOpenOrders={() => setIsOrdersOpen(true)} />
 
-        <main className="flex-grow pt-[7.5rem] md:pt-[8.25rem] lg:pt-[9.5rem] shop-page-bg">
-          <HeroCarousel />
-          <TrustBar />
-          <CategoryTiles />
-          <BestSellers
-            products={products}
-            onAddToCart={handleAddToCart}
-            onOpenDetail={(p) => navigate(`/product/${p.id}`)}
-          />
-          <CollectionsGrid />
+        <main className="flex-grow shop-page-bg">
+          <HeroReplica />
           <ProductGrid
             products={products}
             loading={catalogLoading}
             onAddToCart={handleAddToCart}
-            onOpenDetail={(p) => navigate(`/product/${p.id}`)}
+            onOpenDetail={handleOpenProductDetail}
           />
-          {customLabEnabled && <CustomLab />}
-          {newsletterEnabled && <NewsletterSubscription />}
+          <MarqueeReplica />
+          <HowItWorksReplica />
+          <UploadEstimatorReplica />
+          <ReasonsReplica />
+          <ReviewsReplica />
+          <ClosingCTAReplica />
         </main>
 
-        <Footer onTrackOrder={() => setIsOrdersOpen(true)} />
+        <FooterReplica />
 
         {showScrollTop && (
           <motion.button

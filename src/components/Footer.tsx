@@ -23,14 +23,14 @@ export default function Footer({ onTrackOrder }: FooterProps) {
   };
 
   return (
-    <footer className="bg-[#fafafa] dark:bg-zinc-950 border-t border-[#e8e8e8] dark:border-zinc-800">
-      <div className="do-container py-16 md:py-20">
+    <footer className="bg-[#100724] border-t border-[#4b2d98]">
+      <div className="do-container py-16 md:py-20 text-[#e5d6ff]">
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-10 md:gap-12">
           <div className="col-span-2 md:col-span-1 lg:col-span-2">
-            <Link to="/" className="text-lg font-semibold tracking-tight text-[#111] dark:text-white">
+            <Link to="/" className="text-lg font-semibold tracking-tight text-[#f8f4ff]">
               {BRAND_NAME}
             </Link>
-            <p className="mt-4 text-sm text-[#6b6b6b] dark:text-zinc-400 leading-relaxed max-w-xs">
+            <p className="mt-4 text-sm text-[#b9a4ff] leading-relaxed max-w-xs">
               Premium 3D printed objects — décor, collectibles & custom lab prints. Made to order in India.
             </p>
             <div className="flex items-center gap-3 mt-6">
@@ -38,7 +38,7 @@ export default function Footer({ onTrackOrder }: FooterProps) {
                 href={BRAND_INSTAGRAM_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-[#6b6b6b] hover:text-[#111] dark:text-zinc-400 dark:hover:text-white transition-colors"
+                className="inline-flex items-center gap-2 text-sm text-[#c6b4ff] hover:text-white transition-colors"
                 aria-label={`Follow ${BRAND_NAME} on Instagram`}
               >
                 <Instagram className="w-5 h-5" />
@@ -48,8 +48,8 @@ export default function Footer({ onTrackOrder }: FooterProps) {
           </div>
 
           <div>
-            <h4 className="do-eyebrow mb-4">Shop</h4>
-            <ul className="space-y-3 text-sm text-[#6b6b6b] dark:text-zinc-400">
+            <h4 className="do-eyebrow mb-4 text-[#c6b4ff]">Shop</h4>
+            <ul className="space-y-3 text-sm text-[#b9a4ff]">
               <li>
                 <Link to="/#catalog" className="hover:text-[#111] dark:hover:text-white transition-colors">
                   All products
@@ -82,8 +82,8 @@ export default function Footer({ onTrackOrder }: FooterProps) {
           </div>
 
           <div>
-            <h4 className="do-eyebrow mb-4">Help</h4>
-            <ul className="space-y-3 text-sm text-[#6b6b6b] dark:text-zinc-400">
+            <h4 className="do-eyebrow mb-4 text-[#c6b4ff]">Help</h4>
+            <ul className="space-y-3 text-sm text-[#b9a4ff]">
               <li>
                 <button
                   type="button"

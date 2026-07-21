@@ -17,11 +17,11 @@ export interface SiteSettings {
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
-  promoBarText: 'Free shipping above ₹5,000 · UPI · Card demo · COD · Pan-India',
+  promoBarText: 'Welcome to 3DbySD · Free shipping on orders above ₹999',
   trustItems: [
-    'Free shipping on orders above ₹5,000',
-    '7-day returns on defective prints',
-    'Made to order · Ships in 1–7 days',
+    'Custom made just for you',
+    'Secure payments · 100% safe & secure',
+    'Fast delivery · Pan India shipping',
   ],
   maintenanceMode: false,
   codEnabled: true,

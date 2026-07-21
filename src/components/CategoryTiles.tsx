@@ -12,7 +12,7 @@ export default function CategoryTiles() {
   };
 
   return (
-    <section className="py-12 md:py-16 bg-white dark:bg-zinc-950">
+    <section className="py-12 md:py-16 bg-[#15072f]">
       <div className="do-container">
         <div className="do-section-header">
           <h2 className="do-section-title">Shop by category</h2>
@@ -34,7 +34,7 @@ export default function CategoryTiles() {
               }}
               className="group flex-shrink-0 w-[44vw] sm:w-[220px] md:w-[260px] lg:w-[280px] snap-start text-center"
             >
-              <div className="aspect-square overflow-hidden bg-[#f0f0f0] dark:bg-zinc-800 mb-4">
+              <div className="aspect-square overflow-hidden rounded-[2rem] bg-[#2e1c57] mb-4 border border-[#5f3bd1]/20 shadow-[0_24px_80px_rgba(95,59,209,0.14)]">
                 <img
                   src={tile.image}
                   alt={tile.imageAlt ?? tile.title}
@@ -43,10 +43,10 @@ export default function CategoryTiles() {
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                 />
               </div>
-              <h3 className="text-sm md:text-base font-semibold text-[#111] dark:text-white tracking-wide">
+              <h3 className="text-sm md:text-base font-semibold text-[#f4e9ff] tracking-wide">
                 {tile.title}
               </h3>
-              <p className="text-xs text-[#6b6b6b] dark:text-zinc-400 mt-1">{tile.subtitle}</p>
+              <p className="text-xs text-[#c9b7ff] mt-1">{tile.subtitle}</p>
             </a>
           ))}
         </div>

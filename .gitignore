@@ -49,3 +49,4 @@ desktop.ini
 
 # Local dev / agent
 terminals/
+.vercel

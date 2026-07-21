@@ -37,7 +37,7 @@ export default function NewsletterSubscription() {
   };
 
   return (
-    <section className="py-12 md:py-16 bg-[#111] text-white">
+    <section className="py-12 md:py-16 bg-[#15072f] text-[#f4e9ff] border-t border-[#4f2f9c]">
       <div className="do-container flex flex-col md:flex-row md:items-center justify-between gap-8">
         <div className="max-w-md">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/60 mb-2">Newsletter</p>
@@ -57,7 +57,7 @@ export default function NewsletterSubscription() {
             />
             {errors.email && <p className="text-red-300 text-xs mt-1">{errors.email}</p>}
           </div>
-          <button type="submit" disabled={loading} className="do-btn-primary bg-white text-[#111] hover:opacity-90 disabled:opacity-50 whitespace-nowrap">
+          <button type="submit" disabled={loading} className="do-btn-primary bg-gradient-to-r from-[#b995ff] to-[#ff9ce6] text-white hover:opacity-95 disabled:opacity-50 whitespace-nowrap">
             {loading ? 'Subscribing…' : 'Subscribe'}
           </button>
         </form>

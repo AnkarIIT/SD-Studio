@@ -48,13 +48,13 @@ export default function Header({ cartCount, onOpenCart, onOpenWishlist, onOpenOr
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 bg-white dark:bg-zinc-950 transition-shadow duration-300 ${
-        scrolled ? 'shadow-[0_1px_0_#e8e8e8] dark:shadow-[0_1px_0_#27272a]' : ''
+      className={`fixed top-0 left-0 right-0 z-50 bg-[#120722]/95 backdrop-blur-xl transition-shadow duration-300 ${
+        scrolled ? 'shadow-[0_25px_80px_rgba(80,34,170,0.16)]' : ''
       }`}
     >
       <PromoMarquee />
 
-      <div className="border-b border-[#e8e8e8] dark:border-zinc-800">
+      <div className="border-b border-[#451f80]/40">
         <div className="do-container h-[52px] md:h-14 flex items-center justify-between gap-4">
           <button
             type="button"
@@ -65,65 +65,52 @@ export default function Header({ cartCount, onOpenCart, onOpenWishlist, onOpenOr
             {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <nav className="hidden lg:flex items-center gap-8 text-[13px] font-medium text-[#111] dark:text-zinc-200">
-            <a href="#catalog" className="hover:opacity-60 transition-opacity">
+          <nav className="hidden lg:flex items-center gap-8 text-[13px] font-semibold text-[#e5d6ff]">
+            <Link to="/" className="hover:text-[#fff] transition-colors">
+              Home
+            </Link>
+            <a href="#catalog" className="hover:text-[#fff] transition-colors">
               Shop
             </a>
             {customLabEnabled && (
-              <a href="#custom-lab" className="hover:opacity-60 transition-opacity">
-                Custom Lab
+              <a href="#custom-lab" className="hover:text-[#fff] transition-colors">
+                Customize
               </a>
             )}
-            <Link to="/about" className="hover:opacity-60 transition-opacity">
-              About
+            <a href="#catalog" className="hover:text-[#fff] transition-colors">
+              Collections
+            </a>
+            <Link to="/about" className="hover:text-[#fff] transition-colors">
+              About Us
+            </Link>
+            <Link to="/contact" className="hover:text-[#fff] transition-colors">
+              Contact
             </Link>
           </nav>
 
           <Link
             to="/"
-            className="absolute left-1/2 -translate-x-1/2 text-[15px] md:text-[17px] font-semibold tracking-[0.08em] text-[#111] dark:text-white whitespace-nowrap"
+            className="absolute left-1/2 -translate-x-1/2 text-[15px] md:text-[17px] font-semibold tracking-[0.18em] text-[#f4e9ff] whitespace-nowrap"
           >
             {BRAND_NAME}
           </Link>
 
-          <div className="flex items-center ml-auto">
+          <div className="flex items-center ml-auto gap-3">
             <ThemeToggle />
-            <button
-              type="button"
-              onClick={focusCatalogSearch}
-              className="p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity"
-              title="Search catalog"
-              aria-label="Search catalog"
-            >
-              <Search className="w-5 h-5" strokeWidth={1.5} />
-            </button>
-            <button
-              type="button"
-              onClick={onOpenWishlist}
-              className="relative p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity"
-              title="Wishlist"
-              aria-label="Wishlist"
-            >
-              <Heart className="w-5 h-5" strokeWidth={1.5} />
-              {wishlistCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 min-w-[15px] h-[15px] px-0.5 bg-[#111] dark:bg-white text-white dark:text-[#111] text-[8px] font-bold rounded-full flex items-center justify-center">
-                  {wishlistCount > 9 ? '9+' : wishlistCount}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={onOpenOrders}
-              className="hidden sm:block p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity"
-              title="Orders & tracking"
-              aria-label="Orders and tracking"
-            >
-              <Package className="w-5 h-5" strokeWidth={1.5} />
-            </button>
+
             <button
               type="button"
               onClick={onOpenCart}
-              className="relative p-2.5 text-[#111] dark:text-zinc-200 hover:opacity-60 transition-opacity"
+              className="hidden xl:inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-[#111] shadow-sm hover:bg-zinc-50 transition-colors dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:bg-zinc-900"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Inventory {cartCount > 0 ? `(${cartCount})` : ''}
+            </button>
+
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className="relative p-2.5 text-[#e5d6ff] hover:text-white transition-colors lg:hidden"
               title="Cart"
               aria-label="Cart"
             >

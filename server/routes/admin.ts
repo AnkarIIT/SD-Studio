@@ -294,5 +294,221 @@ router.post('/admin/orders/:orderId/timeline/advance', async (req: Request, res:
   }
 });
 
+router.get('/admin/users', async (_req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        totpEnabled: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    res.json({ success: true, users });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load users';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.post('/admin/users', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  const { name, email, password, role } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ success: false, error: 'Email and password are required' });
+  }
+
+  try {
+    const { hashPassword } = await import('../lib/user-auth');
+    const hashedPassword = await hashPassword(password);
+
+    const user = await prisma.user.create({
+      data: {
+        name: name || null,
+        email: String(email).trim().toLowerCase(),
+        password: hashedPassword,
+        role: role || 'customer',
+        isActive: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
+
+    res.json({ success: true, user });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to create user';
+    res.status(400).json({ success: false, error: message });
+  }
+});
+
+router.put('/admin/users/:id', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  const { name, role, isActive } = req.body;
+
+  try {
+    const user = await prisma.user.update({
+      where: { id: req.params.id },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(role !== undefined && { role }),
+        ...(isActive !== undefined && { isActive }),
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isActive: true,
+        updatedAt: true,
+      },
+    });
+
+    res.json({ success: true, user });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to update user';
+    res.status(400).json({ success: false, error: message });
+  }
+});
+
+router.delete('/admin/users/:id', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  try {
+    await prisma.user.update({
+      where: { id: req.params.id },
+      data: { isActive: false },
+    });
+
+    res.json({ success: true, message: 'User deactivated' });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to deactivate user';
+    res.status(400).json({ success: false, error: message });
+  }
+});
+
+router.get('/admin/activity-logs', async (_req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  try {
+    const logs = await prisma.auditLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+    res.json({ success: true, logs });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load activity logs';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.post('/admin/users/:id/totp/enable', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  try {
+    const { enableTotpForUser } = await import('../lib/user-auth');
+    const result = await enableTotpForUser(req.params.id);
+    if (!result) {
+      return res.status(400).json({ success: false, error: 'Failed to enable TOTP' });
+    }
+    res.json({ success: true, secret: result.secret, qrCodeUrl: result.qrCodeUrl });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to enable TOTP';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.post('/admin/users/:id/totp/confirm', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  const { token } = req.body;
+  if (!token) {
+    return res.status(400).json({ success: false, error: 'TOTP token is required' });
+  }
+
+  try {
+    const { confirmTotpSetup } = await import('../lib/user-auth');
+    const isValid = await confirmTotpSetup(req.params.id, token);
+    if (!isValid) {
+      return res.status(401).json({ success: false, error: 'Invalid TOTP token' });
+    }
+    res.json({ success: true, message: 'TOTP enabled successfully' });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to confirm TOTP';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.post('/admin/users/:id/totp/disable', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  try {
+    const { disableTotpForUser } = await import('../lib/user-auth');
+    const success = await disableTotpForUser(req.params.id);
+    if (!success) {
+      return res.status(400).json({ success: false, error: 'Failed to disable TOTP' });
+    }
+    res.json({ success: true, message: 'TOTP disabled successfully' });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to disable TOTP';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.get('/admin/users/:id/sessions', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  try {
+    const sessions = await prisma.userSession.findMany({
+      where: { userId: req.params.id },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    res.json({ success: true, sessions });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to load sessions';
+    res.status(500).json({ success: false, error: message });
+  }
+});
+
+router.delete('/admin/sessions/:id', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  try {
+    await prisma.userSession.delete({ where: { id: req.params.id } });
+    res.json({ success: true, message: 'Session terminated' });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to terminate session';
+    res.status(400).json({ success: false, error: message });
+  }
+});
+
+router.delete('/admin/users/:id/sessions', async (req: Request, res: Response) => {
+  if (!isDatabaseConfigured()) return dbUnavailable(res);
+
+  try {
+    await prisma.userSession.deleteMany({ where: { userId: req.params.id } });
+    res.json({ success: true, message: 'All user sessions terminated' });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to terminate sessions';
+    res.status(400).json({ success: false, error: message });
+  }
+});
+
 export { listVerificationQueue };
 export default router;

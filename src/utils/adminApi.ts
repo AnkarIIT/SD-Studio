@@ -1,12 +1,13 @@
-import { getAdminApiKey } from './adminAuth';
+import { getAdminApiKey, getAdminToken } from './adminAuth';
 import type { Order } from '../types';
 
 const API_BASE = import.meta.env.VITE_NOTIFICATION_API_URL || '';
 
 function adminHeaders(): HeadersInit {
+  const token = getAdminToken();
   return {
     'Content-Type': 'application/json',
-    'X-Admin-Key': getAdminApiKey(),
+    ...(token ? { Authorization: `Bearer ${token}` } : { 'X-Admin-Key': getAdminApiKey() }),
   };
 }
 
@@ -180,3 +181,102 @@ export async function patchCustomLabStatus(requestId: string, status: string) {
   return res.json();
 }
 
+export async function fetchAdminUsers() {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/users`, { headers: adminHeaders() });
+    const data = await res.json();
+    if (!res.ok) return { users: [], error: data.error };
+    return { users: data.users ?? [], error: undefined };
+  } catch {
+    return { users: [], error: 'Failed to load users' };
+  }
+}
+
+export async function createAdminUser(userData: { name?: string; email: string; password: string; role?: string }) {
+  const res = await fetch(`${API_BASE}/api/admin/users`, {
+    method: 'POST',
+    headers: adminHeaders(),
+    body: JSON.stringify(userData),
+  });
+  return res.json();
+}
+
+export async function updateAdminUser(userId: string, userData: { name?: string; role?: string; isActive?: boolean }) {
+  const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+    method: 'PUT',
+    headers: adminHeaders(),
+    body: JSON.stringify(userData),
+  });
+  return res.json();
+}
+
+export async function deactivateAdminUser(userId: string) {
+  const res = await fetch(`${API_BASE}/api/admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: adminHeaders(),
+  });
+  return res.json();
+}
+
+export async function fetchActivityLogs() {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/activity-logs`, { headers: adminHeaders() });
+    const data = await res.json();
+    if (!res.ok) return { logs: [], error: data.error };
+    return { logs: data.logs ?? [], error: undefined };
+  } catch {
+    return { logs: [], error: 'Failed to load activity logs' };
+  }
+}
+
+export async function enableUserTotp(userId: string) {
+  const res = await fetch(`${API_BASE}/api/admin/users/${userId}/totp/enable`, {
+    method: 'POST',
+    headers: adminHeaders(),
+  });
+  return res.json();
+}
+
+export async function confirmUserTotp(userId: string, token: string) {
+  const res = await fetch(`${API_BASE}/api/admin/users/${userId}/totp/confirm`, {
+    method: 'POST',
+    headers: adminHeaders(),
+    body: JSON.stringify({ token }),
+  });
+  return res.json();
+}
+
+export async function disableUserTotp(userId: string) {
+  const res = await fetch(`${API_BASE}/api/admin/users/${userId}/totp/disable`, {
+    method: 'POST',
+    headers: adminHeaders(),
+  });
+  return res.json();
+}
+
+export async function fetchUserSessions(userId: string) {
+  try {
+    const res = await fetch(`${API_BASE}/api/admin/users/${userId}/sessions`, { headers: adminHeaders() });
+    const data = await res.json();
+    if (!res.ok) return { sessions: [], error: data.error };
+    return { sessions: data.sessions ?? [], error: undefined };
+  } catch {
+    return { sessions: [], error: 'Failed to load sessions' };
+  }
+}
+
+export async function terminateSession(sessionId: string) {
+  const res = await fetch(`${API_BASE}/api/admin/sessions/${sessionId}`, {
+    method: 'DELETE',
+    headers: adminHeaders(),
+  });
+  return res.json();
+}
+
+export async function terminateAllUserSessions(userId: string) {
+  const res = await fetch(`${API_BASE}/api/admin/users/${userId}/sessions`, {
+    method: 'DELETE',
+    headers: adminHeaders(),
+  });
+  return res.json();
+}

@@ -152,7 +152,7 @@ export default function StorefrontPage() {
         <p className="text-zinc-400 max-w-md mb-8">
           {BRAND_NAME} is undergoing maintenance. Orders resume shortly.
         </p>
-        <Link to="/admin" className="text-xs font-bold uppercase tracking-widest text-primary hover:underline">
+        <Link to="/admin-control-7x9k2m4p" className="text-xs font-bold uppercase tracking-widest text-primary hover:underline">
           Admin access
         </Link>
       </div>

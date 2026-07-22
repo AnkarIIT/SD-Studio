@@ -15,6 +15,7 @@ import {
 } from '../lib/orders';
 import paymentsRoutes from './payments';
 import adminRoutes from './admin';
+import authRoutes from './auth';
 import publicRoutes from './public';
 import webhookRoutes from './webhooks';
 import { requireOrderEmailMatch, type RequestWithOrderAccess } from '../lib/order-access';
@@ -23,6 +24,7 @@ const router = Router();
 
 router.use(publicRoutes);
 router.use(webhookRoutes);
+router.use(authRoutes);
 router.use(paymentsRoutes);
 router.use(adminRoutes);
 

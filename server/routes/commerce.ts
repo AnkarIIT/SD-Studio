@@ -4,7 +4,6 @@ import path from 'path';
 import multer from 'multer';
 
 type MulterRequest = Request & { file?: Express.Multer.File };
-import nodemailer from 'nodemailer';
 import prisma from '../lib/database';
 import {
   getOrderByOrderId,
@@ -13,9 +12,6 @@ import {
   persistOrder,
   type CreateOrderPayload,
 } from '../lib/orders';
-import paymentsRoutes from './payments';
-import adminRoutes from './admin';
-import authRoutes from './auth';
 import publicRoutes from './public';
 import webhookRoutes from './webhooks';
 import { requireOrderEmailMatch, type RequestWithOrderAccess } from '../lib/order-access';
@@ -24,9 +20,6 @@ const router = Router();
 
 router.use(publicRoutes);
 router.use(webhookRoutes);
-router.use(authRoutes);
-router.use(paymentsRoutes);
-router.use(adminRoutes);
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'custom-lab');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -50,7 +43,7 @@ const upload = multer({
 function dbUnavailable(res: Response) {
   return res.status(503).json({
     success: false,
-    error: 'Database not configured. Set DATABASE_URL in .env.local and run: npx prisma db push',
+    error: 'Database not configured.',
   });
 }
 
@@ -124,7 +117,7 @@ router.post('/newsletter/subscribe', async (req: Request, res: Response) => {
     });
     res.json({
       success: true,
-      message: 'Subscribed! Use coupon NEWSLETTER15 on your first order.',
+      message: 'Subscribed!',
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Subscribe failed';
@@ -154,7 +147,7 @@ router.post('/custom-requests', (req, res, next) => {
   const file = req.file;
 
   try {
-    const record = await prisma.customLabRequest.create({
+    await prisma.customLabRequest.create({
       data: {
         requestId,
         name,
@@ -165,34 +158,10 @@ router.post('/custom-requests', (req, res, next) => {
       },
     });
 
-    const ownerEmail = process.env.STORE_OWNER_EMAIL || process.env.EMAIL_USER;
-    if (ownerEmail && process.env.EMAIL_USER && process.env.EMAIL_PASSWORD) {
-      const transporter = nodemailer.createTransport({
-        service: process.env.SMTP_HOST ? undefined : 'gmail',
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: (process.env.EMAIL_PASSWORD ?? '').replace(/\s/g, ''),
-        },
-      });
-
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: ownerEmail,
-        replyTo: email,
-        subject: `[3D by SD Custom Lab] ${requestId}`,
-        text: `New custom request from ${name} (${email})\n\n${details}\n\nFile: ${file?.originalname ?? 'none'}`,
-        attachments: file
-          ? [{ filename: file.originalname, path: file.path }]
-          : undefined,
-      });
-    }
-
     res.status(201).json({
       success: true,
-      requestId: record.requestId,
-      message: `Request ${requestId} received. We will email you within 1–2 business days.`,
+      requestId,
+      message: `Request ${requestId} received.`,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to submit request';

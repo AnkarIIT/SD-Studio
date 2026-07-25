@@ -28,8 +28,7 @@ export function stageLabel(stage: string): string {
 export async function addTimelineEvent(
   orderId: string,
   stage: TimelineStage,
-  message?: string,
-  emailSent = false
+  message?: string
 ) {
   const existing = await prisma.orderTimelineEvent.findFirst({
     where: { orderId, stage },
@@ -37,7 +36,7 @@ export async function addTimelineEvent(
   if (existing) return existing;
 
   const event = await prisma.orderTimelineEvent.create({
-    data: { orderId, stage, message, emailSent },
+    data: { orderId, stage, message },
   });
 
   await auditRepo.log('order', orderId, 'timeline', { stage, message });
@@ -56,7 +55,6 @@ export async function getOrderTimeline(orderId: string) {
     stage: e.stage,
     label: stageLabel(e.stage),
     message: e.message,
-    emailSent: e.emailSent,
     createdAt: e.createdAt.toISOString(),
   }));
 }

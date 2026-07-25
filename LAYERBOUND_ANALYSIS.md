@@ -202,25 +202,7 @@ After:
    - Order history retrieval
 
 ### 🟡 **Important (Do Next)**
-5. **Email Notifications**
-   - Order confirmation
-   - Payment confirmation
-   - Shipping updates
-   - Delivery notification
-
-6. **Admin Dashboard**
-   - View all orders
-   - Manage inventory
-   - Update order status
-   - Generate reports
-
-7. **Payment Reconciliation**
-   - Verify payments with Razorpay
-   - Mark orders as paid
-   - Handle payment failures
-   - Retry logic
-
-8. **Advanced Features**
+5. **Advanced Features**
    - Product recommendations
    - Customer reviews with moderation
    - Wishlists sharing

@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import StorefrontPage from './pages/StorefrontPage';
 import ProductPage from './pages/ProductPage';
-import AdminPage from './pages/AdminPage';
 import ContentPage from './pages/ContentPage';
 
 export default function App() {
@@ -10,7 +9,6 @@ export default function App() {
       <Routes>
         <Route path="/" element={<StorefrontPage />} />
         <Route path="/product/:id" element={<ProductPage />} />
-        <Route path="/admin-control-7x9k2m4p" element={<AdminPage />} />
         <Route path="/about" element={<ContentPage slug="about" />} />
         <Route path="/privacy" element={<ContentPage slug="privacy" />} />
         <Route path="/terms" element={<ContentPage slug="terms" />} />

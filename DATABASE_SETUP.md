@@ -143,7 +143,7 @@ Send Email + SMS Notification
     ↓
 Order Status: "paid"
     ↓
-    (Admin/System marks as shipped)
+    (System marks as shipped)
     ↓
 Create Delivery Record in DB
     ↓
@@ -333,21 +333,12 @@ npx prisma db push
 # ============================================
 # DATABASE
 # ============================================
-DATABASE_URL="postgresql://postgres:password@localhost:5432/layerbound_db"
-
-# ============================================
-# EMAIL & SMS (from NOTIFICATION_SETUP.md)
-# ============================================
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=xxxx xxxx xxxx xxxx
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your_auth_token_here
-TWILIO_PHONE_NUMBER=+1xxxxxxxxxx
+DATABASE_URL="mysql://root:rootpassword@localhost:3306/layerbound_db"
 
 # ============================================
 # FRONTEND
 # ============================================
-VITE_NOTIFICATION_API_URL=http://localhost:5001
+VITE_NOTIFICATION_API_URL=
 
 # ============================================
 # SERVER
@@ -458,7 +449,6 @@ const url = process.env.DATABASE_URL;
 ```bash
 # In production, add authentication middleware
 app.use('/api/database', authMiddleware);
-app.use('/api/database/cleanup', adminMiddleware);
 ```
 
 ### 4. Backups

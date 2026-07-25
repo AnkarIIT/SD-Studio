@@ -1,5 +1,6 @@
-import { type ChangeEvent, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion } from 'motion/react';
 
 const PRICE_PER_GRAM = 5;
 const PACKAGING_COST = 30;
@@ -75,18 +76,29 @@ export default function UploadEstimatorReplica() {
   };
 
   return (
-    <section className="py-20 bg-[#FCFBF7] dark:bg-[#090608] text-black dark:text-white transition-colors duration-300">
+    <section id="customize" className="py-20 bg-[#FCFBF7] dark:bg-[#090608] text-black dark:text-white transition-colors duration-300 scroll-mt-28">
       <div className="do-container">
         <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] items-center">
-          <div>
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
             <p className="do-eyebrow text-zinc-500 dark:text-zinc-400">Upload Your STL</p>
             <h2 className="text-4xl font-bold uppercase tracking-[0.18em] mb-4 text-[#925FE2] dark:text-[#b995ff] font-retro mt-2">Instant accurate 3D printing estimate</h2>
             <p className="mt-4 max-w-2xl text-sm text-zinc-600 dark:text-[#c8c4ba] leading-7">
               Drag and drop your STL file to calculate volume, material weight, and estimated price in seconds.
             </p>
-          </div>
+          </motion.div>
 
-          <div className="border-2 border-black dark:border-[#b995ff40] bg-[#FCFBF7] dark:bg-[#0d0a10] rounded-[28px] p-8 shadow-[4px_4px_0px_rgba(0,0,0,1)] dark:shadow-[0_20px_70px_rgba(0,0,0,0.25)] flex flex-col">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="border-2 border-black dark:border-[#b995ff40] bg-[#FCFBF7] dark:bg-[#0d0a10] rounded-[28px] p-8 shadow-[4px_4px_0px_rgba(0,0,0,1)] dark:shadow-[0_20px_70px_rgba(0,0,0,0.25)] flex flex-col"
+          >
             <h3 className="text-2xl font-bold mb-1 text-black dark:text-white font-retro">Upload Your STL</h3>
             <p className="text-sm text-zinc-600 dark:text-[#cfcfcf] mb-6">Instant accurate 3D printing estimate.</p>
 
@@ -124,7 +136,7 @@ export default function UploadEstimatorReplica() {
             >
               Send For Final Quote
             </Link>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

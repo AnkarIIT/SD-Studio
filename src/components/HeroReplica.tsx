@@ -4,7 +4,14 @@ const heroTags = ['HOME DÉCOR', 'FUNCTIONAL PARTS', 'PERSONALIZED GIFTS', 'INDU
 
 export default function HeroReplica() {
   return (
-    <section id="hero" className="relative overflow-hidden bg-[#FCFBF7] dark:bg-[#050205] text-black dark:text-white min-h-screen pt-[7.5rem] md:pt-[9rem] lg:pt-[10rem] transition-colors duration-300">
+    <motion.section
+      id="hero"
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: false, amount: 0.1 }}
+      transition={{ duration: 0.8, ease: "easeOut" }}
+      className="relative overflow-hidden bg-[#FCFBF7] dark:bg-[#050205] text-black dark:text-white min-h-screen pt-[7.5rem] md:pt-[9rem] lg:pt-[10rem] transition-colors duration-300"
+    >
       {/* Background gradients */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(146,95,226,0.1),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(255,156,230,0.08),transparent_18%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(146,95,226,0.22),transparent_28%),radial-gradient(circle_at_bottom_right,rgba(146,95,226,0.14),transparent_22%)] pointer-events-none" />
       
@@ -53,6 +60,6 @@ export default function HeroReplica() {
         </div>
       </div>
 
-    </section>
+    </motion.section>
   );
 }

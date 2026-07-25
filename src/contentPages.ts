@@ -80,7 +80,7 @@ export const CONTENT_PAGES: Record<
       },
       {
         heading: 'Free shipping',
-        body: 'Orders above ₹5,000 qualify for free shipping within India (admin can change this threshold in the control panel).',
+        body: 'Orders above ₹5,000 qualify for free shipping within India.',
       },
     ],
   },

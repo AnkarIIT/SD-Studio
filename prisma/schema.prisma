@@ -202,17 +202,18 @@ model ProductOverride {
 }
 
 model User {
-  id         String        @id @default(cuid())
-  name       String?
-  email      String        @unique
-  password   String
-  role       String        @default("customer")
-  isActive   Boolean       @default(true)
-  totpSecret String?       @unique
-  totpEnabled Boolean      @default(false)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  sessions   UserSession[]
+  id              String        @id @default(cuid())
+  name            String?
+  email           String        @unique
+  password        String
+  role            String        @default("customer")
+  isActive        Boolean       @default(true)
+  totpSecret      String?       @unique
+  totpEnabled     Boolean       @default(false)
+  passwordChanged Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  sessions        UserSession[]
 
   @@index([email])
 }

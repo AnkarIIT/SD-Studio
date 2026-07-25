@@ -4,7 +4,7 @@ export interface Product {
   description: string;
   price: number;
   originalPrice?: number;
-  category: 'Home Decor' | 'Art' | 'Tech' | 'Toys';
+  category: 'Home Decor' | 'Art' | 'Tech' | 'Toys' | 'Accessories' | 'Costumes' | 'Lighting';
   image: string;
   images?: string[];
   rating?: number;

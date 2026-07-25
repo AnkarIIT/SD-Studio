@@ -1,15 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { ClipboardList, Loader2, Package, X, Shield } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { ClipboardList, Loader2, Package, X } from 'lucide-react';
 import { useOrderStore } from '../utils/store';
 import { formatDateTime, formatOrderId, formatPrice } from '../utils/formatting';
 import { fetchOrdersFromServer } from '../utils/ordersApi';
 import {
   getVerifiedEmail,
-  requestTrackOrderOtp,
-  verifyTrackOrderOtp,
-  clearVerifiedEmail,
 } from '../utils/customerAuth';
 import type { Order } from '../types';
 import OrderTimeline from './OrderTimeline';
@@ -37,9 +33,7 @@ export default function OrderHistory({ isOpen, onClose }: OrderHistoryProps) {
   const [remoteOrders, setRemoteOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncNote, setSyncNote] = useState<string | null>(null);
-  const [trackEmail, setTrackEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [verifiedEmail, setVerifiedEmail] = useState(getVerifiedEmail());
+  const verifiedEmail = getVerifiedEmail();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,7 +52,7 @@ export default function OrderHistory({ isOpen, onClose }: OrderHistoryProps) {
           setSyncNote(res.orders.length > 0 ? 'Synced from server' : null);
         } else {
           setRemoteOrders([]);
-          setSyncNote(res.error ?? 'Showing orders on this device only');
+          setSyncNote('Showing orders on this device only');
         }
       })
       .finally(() => setLoading(false));
@@ -89,67 +83,16 @@ export default function OrderHistory({ isOpen, onClose }: OrderHistoryProps) {
           </button>
         </div>
 
-        {!verifiedEmail && (
-          <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 space-y-3 bg-zinc-50/50 dark:bg-zinc-800/30">
-            <p className="text-xs text-zinc-500 flex items-center gap-1.5">
-              <Shield className="w-3.5 h-3.5" /> Verify email to load orders from server
-            </p>
-            <input
-              type="email"
-              value={trackEmail}
-              onChange={(e) => setTrackEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="w-full rounded-lg border border-zinc-300 dark:border-zinc-700 px-3 py-2 text-sm dark:bg-zinc-800"
-            />
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={async () => {
-                  const res = await requestTrackOrderOtp(trackEmail);
-                  if (res.success) {
-                    toast.success(res.message ?? 'OTP sent');
-                    if (res.devHint) toast(`Dev OTP: ${res.devHint}`, { icon: '🔐' });
-                  } else toast.error(res.error);
-                }}
-                className="flex-1 py-2 text-xs font-semibold border rounded-lg dark:border-zinc-700"
-              >
-                Send OTP
-              </button>
-              <input
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="6-digit OTP"
-                className="w-24 rounded-lg border px-2 py-2 text-sm font-mono dark:bg-zinc-800 dark:border-zinc-700"
-              />
-              <button
-                type="button"
-                onClick={async () => {
-                  const res = await verifyTrackOrderOtp(trackEmail, otp);
-                  if (res.success) {
-                    setVerifiedEmail(trackEmail.trim().toLowerCase());
-                    toast.success('Verified');
-                  } else toast.error(res.error);
-                }}
-                className="px-3 py-2 bg-primary text-white text-xs font-semibold rounded-lg"
-              >
-                Verify
-              </button>
-            </div>
-          </div>
-        )}
         {verifiedEmail && (
           <div className="px-6 py-2 flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 text-xs text-zinc-500">
             <span>Signed in as {verifiedEmail}</span>
-            <button type="button" onClick={() => { clearVerifiedEmail(); setVerifiedEmail(''); }} className="text-primary hover:underline">
-              Sign out
-            </button>
           </div>
         )}
 
         {loading && (
           <div className="px-8 py-3 flex items-center gap-2 text-xs text-zinc-500 border-b border-zinc-100 dark:border-zinc-800">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Loading orders from server…
+            Loading orders…
           </div>
         )}
         {syncNote && !loading && (

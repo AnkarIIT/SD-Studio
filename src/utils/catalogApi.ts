@@ -21,20 +21,6 @@ export async function fetchSiteConfigFromServer(): Promise<{
   }
 }
 
-export async function saveSiteConfigToServer(config: SiteSettings, adminKey: string) {
-  const res = await fetch(`${API_BASE}/api/admin/site-config`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Admin-Key': adminKey,
-    },
-    body: JSON.stringify(config),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Failed to save site config');
-  return data.config as SiteSettings;
-}
-
 export async function fetchProductsFromServer(): Promise<{
   products: Product[];
   source: 'local' | 'server';
@@ -49,31 +35,6 @@ export async function fetchProductsFromServer(): Promise<{
   } catch {
     return { products: PRODUCTS, source: 'local' };
   }
-}
-
-export async function updateProductOnServer(
-  productId: string,
-  patch: {
-    price?: number;
-    originalPrice?: number;
-    stock?: number;
-    inStock?: boolean;
-    hidden?: boolean;
-    badge?: string;
-  },
-  adminKey: string
-) {
-  const res = await fetch(`${API_BASE}/api/admin/products/${productId}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Admin-Key': adminKey,
-    },
-    body: JSON.stringify(patch),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error ?? 'Product update failed');
-  return data.products as Product[];
 }
 
 export function getLocalFallbackConfig(): SiteSettings {

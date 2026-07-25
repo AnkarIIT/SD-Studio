@@ -53,8 +53,7 @@ export default function CheckoutSummary({
       <div className="mt-6 pt-5 border-t border-zinc-200 dark:border-zinc-800 space-y-2 text-sm">
         <Row label="Subtotal" value={formatPrice(subtotal)} />
         {discount > 0 && <Row label="Discount" value={`−${formatPrice(discount)}`} accent />}
-        <Row label="GST (18%)" value={formatPrice(tax)} />
-        <Row label="Shipping" value={shipping === 0 ? 'Free' : formatPrice(shipping)} />
+        <Row label="Shipping" value={formatPrice(shipping)} />
         <div className="flex justify-between items-baseline pt-3 border-t border-zinc-200 dark:border-zinc-800">
           <span className="font-semibold text-zinc-900 dark:text-zinc-100">Total</span>
           <span className="text-2xl font-semibold text-[#111] dark:text-white tabular-nums">{formatPrice(total)}</span>

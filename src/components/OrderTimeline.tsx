@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Loader2, CheckCircle2, Circle } from 'lucide-react';
 import { fetchOrderTimeline, type TimelineEvent } from '../utils/ordersApi';
-import { fetchAdminOrderTimeline } from '../utils/adminApi';
 
 const STAGE_ORDER = [
   'order_placed',
@@ -14,20 +13,18 @@ const STAGE_ORDER = [
 
 interface OrderTimelineProps {
   orderId: string;
-  admin?: boolean;
 }
 
-export default function OrderTimeline({ orderId, admin = false }: OrderTimelineProps) {
+export default function OrderTimeline({ orderId }: OrderTimelineProps) {
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    const loader = admin ? fetchAdminOrderTimeline(orderId) : fetchOrderTimeline(orderId);
-    loader
+    fetchOrderTimeline(orderId)
       .then((res) => setEvents(res.timeline))
       .finally(() => setLoading(false));
-  }, [orderId, admin]);
+  }, [orderId]);
 
   if (loading) {
     return (

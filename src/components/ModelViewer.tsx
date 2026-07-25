@@ -1,12 +1,23 @@
 import { motion } from 'motion/react';
 import { Package } from 'lucide-react';
 
+import { useEffect } from 'react';
+
 interface ModelViewerProps {
   modelUrl?: string;
   productName: string;
 }
 
 export default function ModelViewer({ modelUrl, productName }: ModelViewerProps) {
+  useEffect(() => {
+    if (modelUrl && !document.querySelector('script[src*="model-viewer"]')) {
+      const script = document.createElement('script');
+      script.type = 'module';
+      script.src = 'https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js';
+      document.body.appendChild(script);
+    }
+  }, [modelUrl]);
+
   if (!modelUrl) {
     return (
       <motion.div

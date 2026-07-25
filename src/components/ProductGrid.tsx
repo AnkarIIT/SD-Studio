@@ -5,6 +5,7 @@ import { useFilterStore } from '../utils/store';
 import { productMatchesCollection } from '../utils/catalogFilters';
 import { Search, X } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
+import { motion } from 'motion/react';
 
 interface ProductGridProps {
   products: Product[];
@@ -77,31 +78,36 @@ export default function ProductGrid({ products, loading = false, onAddToCart, on
             <p className="do-eyebrow">Catalog</p>
             <h2 className="do-section-title mt-1">All products</h2>
             <p className="text-sm text-[#6b6b6b] dark:text-zinc-400 mt-2">
-              {filtered.length} products · Made to order · Prices in ₹ incl. GST
+              {filtered.length} products · Made to order · Prices in ₹
             </p>
           </div>
         </div>
 
-        <form onSubmit={handleSearch} className="mb-6 max-w-xl">
-          <div className="flex border border-[#e8e8e8] dark:border-zinc-700 focus-within:border-[#111] dark:focus-within:border-zinc-400 transition-colors">
-            <Search className="w-4 h-4 text-[#6b6b6b] m-3 flex-shrink-0" />
+        <form onSubmit={handleSearch} className="mb-8 max-w-xl">
+          <div className="flex border border-[#e8e8e8] dark:border-zinc-700 focus-within:border-[#925FE2] dark:focus-within:border-[#925FE2] transition-all rounded-full overflow-hidden bg-[#f9f9f9] dark:bg-zinc-900/50 p-1">
+            <Search className="w-4 h-4 text-[#6b6b6b] ml-4 my-3 flex-shrink-0" />
             <input
               id="catalog-search"
               type="text"
               placeholder="Search products…"
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
-              className="flex-1 py-3 pr-3 bg-transparent outline-none text-sm text-[#111] dark:text-zinc-100 placeholder:text-[#6b6b6b]"
+              className="flex-1 py-2 px-3 bg-transparent outline-none text-sm text-[#111] dark:text-zinc-100 placeholder:text-[#6b6b6b]"
             />
-            <button type="submit" className="do-btn-primary px-6 py-3 text-[10px]">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              type="submit"
+              className="do-btn-primary px-8 py-2.5 text-[10px] rounded-full"
+            >
               Search
-            </button>
+            </motion.button>
           </div>
         </form>
 
         {selectedCollection && (
           <div className="flex items-center gap-2 mb-4">
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#f5f5f5] dark:bg-zinc-800 text-xs font-medium text-[#111] dark:text-zinc-200">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#f5f5f5] dark:bg-zinc-800 text-xs font-medium text-[#111] dark:text-zinc-200 rounded-lg">
               {selectedCollection}
               <button type="button" onClick={clearCollectionFilter} aria-label="Clear filter">
                 <X className="w-3 h-3" />
@@ -110,36 +116,44 @@ export default function ProductGrid({ products, loading = false, onAddToCart, on
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 mb-6">
+        <div className="flex flex-wrap gap-2 mb-8">
           {CATEGORIES.map((cat) => (
-            <button
+            <motion.button
               key={cat}
               type="button"
               onClick={() => setCategory(cat)}
-              className={`px-4 py-2 text-xs font-medium transition-colors ${
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.95 }}
+              className={`px-6 py-2.5 text-xs font-bold uppercase tracking-widest transition-all rounded-full ${
                 selectedCategory === cat
-                  ? 'bg-[#111] dark:bg-white text-white dark:text-[#111]'
-                  : 'bg-[#f5f5f5] dark:bg-zinc-800 text-[#6b6b6b] dark:text-zinc-400 hover:text-[#111] dark:hover:text-white'
+                  ? 'bg-[#111] dark:bg-white text-white dark:text-[#111] shadow-lg shadow-black/10 dark:shadow-white/10'
+                  : 'bg-[#f5f5f5] dark:bg-zinc-900 text-[#6b6b6b] dark:text-zinc-400 hover:bg-[#eee] dark:hover:bg-zinc-800'
               }`}
             >
               {cat}
-            </button>
+            </motion.button>
           ))}
         </div>
 
-        <div className="flex items-center gap-3 mb-8 text-sm">
-          <label className="do-eyebrow">Sort</label>
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-            className="border border-[#e8e8e8] dark:border-zinc-700 px-3 py-2 text-sm bg-white dark:bg-zinc-900 text-[#111] dark:text-zinc-100 outline-none focus:border-[#111]"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+        <div className="flex items-center gap-3 mb-10 text-sm">
+          <label htmlFor="sort-select" className="do-eyebrow">Sort</label>
+          <div className="relative">
+            <select
+              id="sort-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+              className="appearance-none border border-[#e8e8e8] dark:border-zinc-800 px-4 py-2 pr-10 text-xs font-bold uppercase tracking-widest bg-white dark:bg-zinc-900 text-[#111] dark:text-zinc-100 outline-none focus:border-[#925FE2] rounded-full transition-colors cursor-pointer"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400">
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+          </div>
         </div>
 
         {loading && products.length === 0 ? (
@@ -160,7 +174,7 @@ export default function ProductGrid({ products, loading = false, onAddToCart, on
             ))}
           </div>
         ) : (
-          <div className="text-center py-20 border border-dashed border-[#e8e8e8] dark:border-zinc-800">
+          <div className="text-center py-20 border border-dashed border-[#e8e8e8] dark:border-zinc-800 rounded-[2rem]">
             <p className="text-lg font-medium text-[#111] dark:text-white">No products found</p>
             <p className="text-sm text-[#6b6b6b] mt-2">Try another category or search term</p>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import HeaderReplica from '../components/HeaderReplica';
 import HeroReplica from '../components/HeroReplica';
@@ -21,12 +21,12 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import { Order, Product } from '../types';
 import { useProducts } from '../hooks/useProducts';
 import { fetchSiteConfigFromServer } from '../utils/catalogApi';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Layers, ArrowUp } from 'lucide-react';
 import { useCartStore, useFilterStore } from '../utils/store';
 import { useSiteSettings } from '../utils/siteSettings';
 import toast from 'react-hot-toast';
-import { initNotificationMode } from '../utils/notificationMode';
+import { animate } from 'motion/react';
 import { BRAND_NAME } from '../brand';
 
 export default function StorefrontPage() {
@@ -61,7 +61,6 @@ export default function StorefrontPage() {
   }, [products, catalogLoading, removeItem]);
 
   useEffect(() => {
-    initNotificationMode();
     fetchSiteConfigFromServer().then(({ config }) => {
       if (config) updateSiteSettings(config);
     });
@@ -110,7 +109,16 @@ export default function StorefrontPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+  const scrollToTop = () => {
+    // Premium Framer Motion scroll for a perfect "sliding" feel
+    const currentScroll = window.scrollY;
+    animate(currentScroll, 0, {
+      type: "spring",
+      bounce: 0,
+      duration: 0.8,
+      onUpdate: (latest) => window.scrollTo(0, latest),
+    });
+  };
 
   const handleAddToCart = (product: Product & { quantity?: number }) => {
     if (product.stock === 0 || product.inStock === false) {
@@ -152,12 +160,14 @@ export default function StorefrontPage() {
         <p className="text-zinc-400 max-w-md mb-8">
           {BRAND_NAME} is undergoing maintenance. Orders resume shortly.
         </p>
-        <Link to="/admin-control-7x9k2m4p" className="text-xs font-bold uppercase tracking-widest text-primary hover:underline">
-          Admin access
-        </Link>
       </div>
     );
   }
+
+  const sectionVariants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+  };
 
   return (
     <ErrorBoundary>
@@ -166,33 +176,57 @@ export default function StorefrontPage() {
 
         <main className="flex-grow shop-page-bg">
           <HeroReplica />
-          <ProductGrid
-            products={products}
-            loading={catalogLoading}
-            onAddToCart={handleAddToCart}
-            onOpenDetail={handleOpenProductDetail}
-          />
+
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+            <ProductGrid
+              products={products}
+              loading={catalogLoading}
+              onAddToCart={handleAddToCart}
+              onOpenDetail={handleOpenProductDetail}
+            />
+          </motion.div>
+
           <MarqueeReplica />
-          <HowItWorksReplica />
-          <UploadEstimatorReplica />
-          <ReasonsReplica />
-          <ReviewsReplica />
-          <ClosingCTAReplica />
+
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+            <HowItWorksReplica />
+          </motion.div>
+
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+            <UploadEstimatorReplica />
+          </motion.div>
+
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+            <ReasonsReplica />
+          </motion.div>
+
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+            <ReviewsReplica />
+          </motion.div>
+
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-100px" }} variants={sectionVariants}>
+            <ClosingCTAReplica />
+          </motion.div>
         </main>
 
         <FooterReplica />
 
-        {showScrollTop && (
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            onClick={scrollToTop}
-            className="fixed bottom-8 right-8 p-3 bg-[#111] dark:bg-white text-white dark:text-[#111] hover:opacity-90 transition-opacity z-50 shadow-lg"
-            title="Scroll to top"
-          >
-            <ArrowUp className="w-6 h-6" />
-          </motion.button>
-        )}
+        <AnimatePresence>
+          {showScrollTop && (
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={scrollToTop}
+              className="fixed bottom-8 right-8 p-3.5 bg-[#111] dark:bg-white text-white dark:text-[#111] hover:opacity-90 transition-opacity z-50 shadow-xl rounded-full"
+              title="Scroll to top"
+            >
+              <ArrowUp className="w-6 h-6" />
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemove={removeItem} onCheckout={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} />
         <Wishlist isOpen={isWishlistOpen} onClose={() => setIsWishlistOpen(false)} onAddToCart={handleAddToCart} />

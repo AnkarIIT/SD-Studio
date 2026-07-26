@@ -1,14 +1,14 @@
-const CASHFREE_BASE_URL = process.env.NODE_ENV === 'production'
+import fetch from 'node-fetch';
+
+// The provided key is a production key (contains _prod_)
+const IS_PROD = true;
+
+const CASHFREE_BASE_URL = IS_PROD
   ? 'https://api.cashfree.com/pg'
   : 'https://sandbox.cashfree.com/pg';
 
-// Using the provided API key as the default if not set in environment
 const CLIENT_ID = process.env.CASHFREE_APP_ID || '13004828759f4aa002bfefde4482840031';
-const CLIENT_SECRET = process.env.CASHFREE_SECRET_KEY || ''; // Secret key is usually different from App ID
-
-if (!CLIENT_ID || !CLIENT_SECRET) {
-  console.warn('⚠️  Cashfree Secret Key missing (CASHFREE_SECRET_KEY). Using App ID: ' + CLIENT_ID);
-}
+const CLIENT_SECRET = process.env.CASHFREE_SECRET_KEY || 'cfsk_ma_prod_72d7de80c99f14da1353233f3ff903f2_1b92b30c';
 
 export interface CashfreeOrderResponse {
   cf_order_id: string;

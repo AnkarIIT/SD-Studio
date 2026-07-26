@@ -107,7 +107,7 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: Checkou
       }
 
       // 2. Open Cashfree Checkout
-      const cashfree = Cashfree({ mode: "sandbox" }); // Use "production" for real payments
+      const cashfree = Cashfree({ mode: "production" }); // Real production keys integrated
 
       cashfree.checkout({
         paymentSessionId: data.paymentSessionId,

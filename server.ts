@@ -99,16 +99,20 @@ app.get('/api/health', async (_req: Request, res: Response) => {
   });
 });
 
-// Start server
-void connectDatabase();
-
-app.listen(PORT, () => {
-  console.log(`
+// Start server only if not running in a serverless environment (like Vercel)
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  void connectDatabase();
+  app.listen(PORT, () => {
+    console.log(`
 ╔════════════════════════════════════════╗
 ║         3D BY SD SERVER RUNNING        ║
 ╚════════════════════════════════════════╝
 PORT: ${PORT}
 `);
-});
+  });
+} else {
+  // In serverless, we just need to ensure the DB connection is ready
+  void connectDatabase();
+}
 
 export default app;

@@ -81,6 +81,18 @@ export default function FooterReplica() {
             </div>
           </div>
         </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ delay: 0.5, duration: 1 }}
+          className="mt-16 pt-8 border-t border-black/5 dark:border-white/5 text-center"
+        >
+          <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-zinc-400 dark:text-zinc-600">
+            Build by Vasudev Community
+          </p>
+        </motion.div>
       </div>
     </footer>
   );

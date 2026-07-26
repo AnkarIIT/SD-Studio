@@ -22,8 +22,8 @@ export default function FooterReplica() {
   };
 
   return (
-    <footer id="footer" className="bg-[#FCFBF7] dark:bg-[#050205] text-black dark:text-white py-16 transition-colors duration-300 border-t border-black/15 dark:border-transparent scroll-mt-20">
-      <div className="do-container">
+    <footer id="footer" className="bg-[#FCFBF7] dark:bg-[#050205] text-black dark:text-white py-16 transition-colors duration-300 border-t border-black/15 dark:border-transparent scroll-mt-20 relative">
+      <div className="do-container relative">
         <motion.div
           initial="hidden"
           whileInView="visible"
@@ -82,17 +82,16 @@ export default function FooterReplica() {
           </div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          transition={{ delay: 0.5, duration: 1 }}
-          className="mt-16 pt-8 border-t border-black/5 dark:border-white/5 text-center"
-        >
-          <p className="text-[9px] font-bold uppercase tracking-[0.4em] text-zinc-400 dark:text-zinc-600">
+        {/*
+            PRECISION PLACEMENT:
+            Added "Build by Vasudev Community" at the bottom center
+            WITHOUT shifting any other elements or adding extra row space.
+        */}
+        <div className="absolute left-1/2 -bottom-8 -translate-x-1/2 w-full text-center pointer-events-none">
+          <p className="text-[8px] font-black uppercase tracking-[0.4em] text-zinc-400/60 dark:text-zinc-600/60">
             Build by Vasudev Community
           </p>
-        </motion.div>
+        </div>
       </div>
     </footer>
   );

@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -188,6 +188,21 @@ model SiteConfig {
   id        String   @id @default("global")
   data      String
   updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  description      String?
+  category         String
+  base_price       Float
+  discounted_price Float?
+  is_on_sale       Boolean  @default(false)
+  is_new           Boolean  @default(false)
+  is_bestseller    Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model ProductOverride {

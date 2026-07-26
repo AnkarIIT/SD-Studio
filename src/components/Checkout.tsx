@@ -1,4 +1,4 @@
-import { type FormEvent, useMemo, useState } from 'react';
+import { type FormEvent, useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, X, ShoppingBag, MapPin, CreditCard, CheckCircle2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -12,7 +12,10 @@ import { BRAND_NAME } from '../brand';
 
 declare const Cashfree: any;
 
+const STORAGE_KEY = 'lb_checkout_address';
+
 export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpen: boolean; items: CartItem[]; onClose: () => void; onComplete: (o: Order) => void }) {
+  // Initialize with empty address
   const [address, setAddress] = useState<Address>({ fullName: '', email: '', phone: '', street: '', city: '', state: '', pincode: '', country: 'India' });
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState('');
@@ -22,6 +25,25 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
   const { addOrder } = useOrderStore();
   const { clearCart } = useCartStore();
   const siteSettings = useSiteSettings();
+
+  // Load saved address on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        setAddress(JSON.parse(saved));
+      } catch (e) {
+        console.error('Failed to parse saved address');
+      }
+    }
+  }, []);
+
+  // Save address whenever it changes
+  useEffect(() => {
+    if (address.fullName || address.email || address.phone || address.street) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(address));
+    }
+  }, [address]);
 
   const totals = useMemo(() => getOrderTotals(items, appliedCoupon, siteSettings), [items, appliedCoupon, siteSettings]);
 
@@ -34,7 +56,6 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
     const orderId = `SD-ORD-${Date.now().toString(36).toUpperCase()}`;
 
     try {
-      // 1. Create order (Using absolute URL for Vercel stability)
       const res = await fetch('/api/payments/cashfree/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -50,13 +71,11 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
 
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create order');
 
-      // 2. Open Cashfree
       const cashfree = Cashfree({ mode: "production" });
       cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: "_modal" })
         .then(async (result: any) => {
           if (result.error) { toast.error(result.error.message); setIsProcessing(false); return; }
 
-          // 3. Verify
           const vRes = await fetch('/api/payments/cashfree/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -88,22 +107,31 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} className="relative w-full max-w-6xl max-h-[92vh] overflow-y-auto bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl">
             <div className="sticky top-0 z-10 bg-white dark:bg-zinc-900 border-b border-zinc-100 dark:border-zinc-800 px-6 py-5 flex items-center justify-between rounded-t-2xl">
                <h2 className="text-xl font-bold">{BRAND_NAME} Checkout</h2>
-               {!isProcessing && <button onClick={onClose}><X className="w-5 h-5 text-zinc-400" /></button>}
+               {!isProcessing && <button onClick={onClose} aria-label="Close"><X className="w-5 h-5 text-zinc-400" /></button>}
             </div>
 
             <form onSubmit={initiatePayment} className="grid grid-cols-1 lg:grid-cols-[1fr_360px]">
               <div className="p-6 md:p-10 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  {['fullName', 'email', 'phone', 'city', 'state', 'pincode'].map((f) => (
-                    <label key={f} className="block">
-                      <span className="text-[10px] font-black uppercase text-zinc-400 mb-1.5 block">{f.replace(/([A-Z])/g, ' $1')}</span>
+                  {[
+                    { key: 'fullName', label: 'Full Name', type: 'text', autocomplete: 'name' },
+                    { key: 'email', label: 'Email Address', type: 'email', autocomplete: 'email' },
+                    { key: 'phone', label: 'Phone Number', type: 'tel', autocomplete: 'tel' },
+                    { key: 'city', label: 'City', type: 'text', autocomplete: 'address-level2' },
+                    { key: 'state', label: 'State', type: 'text', autocomplete: 'address-level1' },
+                    { key: 'pincode', label: 'Pincode', type: 'text', autocomplete: 'postal-code' },
+                  ].map((f) => (
+                    <label key={f.key} className="block">
+                      <span className="text-[10px] font-black uppercase text-zinc-400 mb-1.5 block">{f.label}</span>
                       <input
-                        value={(address as any)[f]}
-                        onChange={e => {setAddress({...address, [f]: e.target.value}); setErrors({...errors, [f]: ''})}}
+                        value={(address as any)[f.key]}
+                        onChange={e => {setAddress({...address, [f.key]: e.target.value}); setErrors({...errors, [f.key]: ''})}}
                         disabled={isProcessing}
-                        className={`w-full border rounded-xl p-3 text-sm outline-none bg-transparent ${errors[f] ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700'}`}
+                        type={f.type}
+                        autoComplete={f.autocomplete}
+                        className={`w-full border rounded-xl p-4 text-base outline-none bg-transparent transition-colors ${errors[f.key] ? 'border-red-500' : 'border-zinc-200 dark:border-zinc-700 focus:border-[#925FE2]'}`}
                       />
-                      {errors[f] && <span className="text-[10px] text-red-500">{errors[f]}</span>}
+                      {errors[f.key] && <span className="text-[10px] text-red-500 font-bold mt-1 block">{errors[f.key]}</span>}
                     </label>
                   ))}
                   <label className="block md:col-span-2">
@@ -112,8 +140,9 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
                       value={address.street}
                       onChange={e => setAddress({...address, street: e.target.value})}
                       disabled={isProcessing}
-                      rows={2}
-                      className="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 text-sm outline-none bg-transparent"
+                      rows={3}
+                      autoComplete="street-address"
+                      className="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 text-base outline-none bg-transparent focus:border-[#925FE2] transition-colors"
                     />
                   </label>
                 </div>
@@ -121,8 +150,8 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
 
               <CheckoutSummary items={items} {...totals}>
                 <div className="flex gap-2">
-                  <input value={couponCode} onChange={e => setCouponCode(e.target.value)} placeholder="Coupon" className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700" />
-                  <button type="button" onClick={() => { (siteSettings as any).coupons?.[couponCode.toUpperCase()] ? (setAppliedCoupon(couponCode.toUpperCase()), toast.success('Applied!')) : toast.error('Invalid') }} className="px-4 border rounded-lg text-sm">Apply</button>
+                  <input value={couponCode} onChange={e => setCouponCode(e.target.value)} placeholder="Coupon" className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 outline-none focus:border-[#925FE2]" />
+                  <button type="button" onClick={() => { (siteSettings as any).coupons?.[couponCode.toUpperCase()] ? (setAppliedCoupon(couponCode.toUpperCase()), toast.success('Applied!')) : toast.error('Invalid') }} className="px-4 border rounded-lg text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Apply</button>
                 </div>
                 <button type="submit" disabled={isProcessing} className="do-btn-primary w-full py-4 flex items-center justify-center gap-2">
                   {isProcessing ? <Loader2 className="animate-spin" /> : 'Pay Securely'} <ArrowRight className="w-4 h-4" />

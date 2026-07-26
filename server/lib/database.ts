@@ -1,15 +1,29 @@
 import '../env';
 import { PrismaClient } from '@prisma/client';
 
-// Instantiate Prisma Client
-const prisma = new PrismaClient();
+// Singleton instance to prevent exhausting connections in serverless environments
+let prisma: PrismaClient;
 
-// Handle graceful shutdown
-process.on('SIGINT', async () => {
-  console.log('\n🔴 Shutting down database connection...');
-  await prisma.$disconnect();
-  process.exit(0);
-});
+if (process.env.NODE_ENV === 'production') {
+  prisma = new PrismaClient();
+} else {
+  // @ts-ignore
+  if (!global.prisma) {
+    // @ts-ignore
+    global.prisma = new PrismaClient();
+  }
+  // @ts-ignore
+  prisma = global.prisma;
+}
+
+// Handle graceful shutdown for non-serverless environments
+if (!process.env.VERCEL) {
+  process.on('SIGINT', async () => {
+    console.log('\n🔴 Shutting down database connection...');
+    await prisma.$disconnect();
+    process.exit(0);
+  });
+}
 
 export default prisma;
 

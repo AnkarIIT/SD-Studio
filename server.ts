@@ -1,117 +1,73 @@
 import './server/env';
-import express, { Express, Request, Response } from 'express';
+import express, { Express } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import commerceRoutes from './server/routes/commerce';
 import publicRoutes from './server/routes/public';
 import webhooksRoutes from './server/routes/webhooks';
-import { connectDatabase } from './server/lib/db-connect';
-import { isDatabaseConfigured } from './server/lib/orders';
-import { createCashfreeOrder, getCashfreeOrder } from './server/lib/cashfree';
+import { createCashfreeOrder, verifyCashfreePayment } from './server/lib/cashfree';
 import { persistOrder } from './server/lib/orders';
+import { connectDatabase } from './server/lib/db-connect';
 
 const app: Express = express();
-const PORT = process.env.NOTIFICATION_PORT || 5001;
+const PORT = process.env.PORT || 5001;
 
-// Middleware
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
-const isDevelopment = process.env.NODE_ENV !== 'production';
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (isDevelopment) return callback(null, true);
-    if (allowedOrigins.length === 0) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-}));
-
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
-
+// Global Middleware
+app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// ============================================
-// API ENDPOINTS
-// ============================================
+// --- CASHFREE ROUTES (Integrated directly for reset) ---
 
 app.post('/api/payments/cashfree/order', async (req, res) => {
-  try {
-    const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
-    const { data, error } = await createCashfreeOrder({
-      orderId,
-      orderAmount: amount,
-      customerName,
-      customerEmail,
-      customerPhone,
-    });
+  const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
 
-    if (error || !data) {
-      return res.status(400).json({ success: false, error: error || 'Failed to create Cashfree order' });
-    }
+  const { data, error } = await createCashfreeOrder({
+    orderId,
+    amount,
+    name: customerName,
+    email: customerEmail,
+    phone: customerPhone
+  });
 
-    res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
+  if (error) return res.status(400).json({ success: false, error });
+  res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id });
 });
 
 app.post('/api/payments/cashfree/verify', async (req, res) => {
+  const { orderId, orderPayload } = req.body;
+  const isPaid = await verifyCashfreePayment(orderId);
+
+  if (!isPaid) return res.status(400).json({ success: false, error: 'Payment not verified' });
+
   try {
-    const { orderId, orderPayload } = req.body;
-    const cfOrder = await getCashfreeOrder(orderId);
-
-    if (!cfOrder || cfOrder.order_status !== 'PAID') {
-      return res.status(400).json({ success: false, error: 'Payment not verified' });
-    }
-
-    // Persist order on success
-    const finalOrder = await persistOrder({
+    const order = await persistOrder({
       ...orderPayload,
       status: 'confirmed',
       paymentMethod: 'card',
-      paymentId: cfOrder.cf_order_id.toString(),
     });
-
-    res.json({ success: true, order: finalOrder });
+    res.json({ success: true, order });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(500).json({ success: false, error: 'Order persistence failed' });
   }
 });
 
+// --- CORE ROUTES ---
 app.use('/api', commerceRoutes);
 app.use('/api', publicRoutes);
 app.use('/api', webhooksRoutes);
 
-app.get('/api/health', async (_req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
-    databaseConfigured: isDatabaseConfigured(),
-    timestamp: new Date().toISOString(),
-  });
+// --- HEALTH ---
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'live', env: process.env.NODE_ENV });
 });
 
-// Start server only if not running in a serverless environment (like Vercel)
-if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+// --- SERVER START (Local Only) ---
+if (!process.env.VERCEL) {
   void connectDatabase();
-  app.listen(PORT, () => {
-    console.log(`
-╔════════════════════════════════════════╗
-║         3D BY SD SERVER RUNNING        ║
-╚════════════════════════════════════════╝
-PORT: ${PORT}
-`);
-  });
+  app.listen(PORT, () => console.log(`🚀 Server ready on port ${PORT}`));
 } else {
-  // In serverless, we just need to ensure the DB connection is ready
+  // On Vercel, we just ensure DB connection logic is primed
   void connectDatabase();
 }
 

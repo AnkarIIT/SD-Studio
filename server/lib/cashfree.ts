@@ -1,85 +1,64 @@
+/**
+ * 💳 CLEAN RESET: Cashfree Production Integration
+ * Optimized for Vercel Serverless
+ */
+
 const IS_PROD = true;
+const BASE_URL = IS_PROD ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
 
-const CASHFREE_BASE_URL = IS_PROD
-  ? 'https://api.cashfree.com/pg'
-  : 'https://sandbox.cashfree.com/pg';
+// Production Credentials
+const APP_ID = '13004828759f4aa002bfefde4482840031';
+const SECRET_KEY = process.env.CASHFREE_SECRET_KEY || 'cfsk_ma_prod_72d7de80c99f14da1353233f3ff903f2_1b92b30c';
 
-const CLIENT_ID = process.env.CASHFREE_APP_ID || '13004828759f4aa002bfefde4482840031';
-const CLIENT_SECRET = process.env.CASHFREE_SECRET_KEY || 'cfsk_ma_prod_72d7de80c99f14da1353233f3ff903f2_1b92b30c';
-
-// Your actual production domain
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://sd-studio-two.vercel.app';
-
-export interface CashfreeOrderResponse {
-  cf_order_id: string;
-  order_id: string;
-  payment_session_id: string;
-  order_status: string;
-  order_amount: number;
-  order_currency: string;
-}
-
-export async function createCashfreeOrder(payload: {
-  orderId: string;
-  orderAmount: number;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-}): Promise<{ data?: CashfreeOrderResponse; error?: string }> {
+export async function createCashfreeOrder(payload: any) {
   try {
-    const response = await fetch(`${CASHFREE_BASE_URL}/orders`, {
+    const response = await fetch(`${BASE_URL}/orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-version': '2023-08-01',
-        'x-client-id': CLIENT_ID,
-        'x-client-secret': CLIENT_SECRET,
+        'x-client-id': APP_ID,
+        'x-client-secret': SECRET_KEY,
       },
       body: JSON.stringify({
         order_id: payload.orderId,
-        order_amount: payload.orderAmount,
+        order_amount: payload.amount,
         order_currency: 'INR',
         customer_details: {
-          customer_id: payload.customerEmail.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 45),
-          customer_name: payload.customerName,
-          customer_email: payload.customerEmail,
-          customer_phone: payload.customerPhone.replace(/[^0-9]/g, '').slice(-10),
+          customer_id: payload.email.replace(/[^a-zA-Z0-9]/g, '_'),
+          customer_name: payload.name,
+          customer_email: payload.email,
+          customer_phone: payload.phone.replace(/[^0-9]/g, '').slice(-10),
         },
         order_meta: {
-          // Using your actual production domain for the return URL
-          return_url: `${FRONTEND_URL}/order-success?order_id={order_id}`,
+          return_url: `https://sd-studio-two.vercel.app/order-success?order_id={order_id}`,
         },
       }),
     });
 
     const data = await response.json() as any;
-    if (!response.ok) {
-      console.error('Cashfree API Error Body:', data);
-      return { error: data.message || data.error_code || 'API Error' };
-    }
-
-    return { data: data as CashfreeOrderResponse };
-  } catch (error: any) {
-    console.error('Cashfree Exception:', error);
-    return { error: 'Backend logic failed' };
+    if (!response.ok) return { error: data.message || 'Cashfree API Error' };
+    return { data };
+  } catch (err: any) {
+    return { error: 'Connection to Cashfree failed' };
   }
 }
 
-export async function getCashfreeOrder(orderId: string) {
+export async function verifyCashfreePayment(orderId: string) {
   try {
-    const response = await fetch(`${CASHFREE_BASE_URL}/orders/${orderId}`, {
+    const response = await fetch(`${BASE_URL}/orders/${orderId}`, {
       method: 'GET',
       headers: {
         'x-api-version': '2023-08-01',
-        'x-client-id': CLIENT_ID,
-        'x-client-secret': CLIENT_SECRET,
+        'x-client-id': APP_ID,
+        'x-client-secret': SECRET_KEY,
       },
     });
 
-    const data = await response.json();
-    return response.ok ? data : null;
-  } catch (error) {
-    console.error('Cashfree API Exception:', error);
-    return null;
+    const data = await response.json() as any;
+    if (!response.ok) return false;
+    return data.order_status === 'PAID';
+  } catch {
+    return false;
   }
 }

@@ -5,10 +5,8 @@ import bodyParser from 'body-parser';
 import commerceRoutes from './server/routes/commerce';
 import publicRoutes from './server/routes/public';
 import webhooksRoutes from './server/routes/webhooks';
-import prisma from './server/lib/database';
 import { connectDatabase } from './server/lib/db-connect';
 import { isDatabaseConfigured } from './server/lib/orders';
-import { createOrderAccessToken } from './server/lib/order-access';
 import { createCashfreeOrder, getCashfreeOrder } from './server/lib/cashfree';
 import { persistOrder } from './server/lib/orders';
 
@@ -42,79 +40,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 // ============================================
-// RATE LIMITING (in-memory)
-// ============================================
-type RateBucket = { count: number; resetAt: number };
-const rateBuckets = new Map<string, RateBucket>();
-
-function createRateLimiter(maxRequests: number, windowMs: number, keyPrefix: string) {
-  return (req: Request, res: Response, next: () => void) => {
-    const ip = req.ip || req.socket.remoteAddress || 'unknown';
-    const key = `${keyPrefix}:${ip}`;
-    const now = Date.now();
-    let bucket = rateBuckets.get(key);
-    if (!bucket || now > bucket.resetAt) {
-      bucket = { count: 0, resetAt: now + windowMs };
-      rateBuckets.set(key, bucket);
-    }
-    bucket.count += 1;
-    if (bucket.count > maxRequests) {
-      res.status(429).json({ success: false, error: 'Rate limit exceeded. Try again later.' });
-      return;
-    }
-    next();
-  };
-}
-
-const generalRateLimit = createRateLimiter(100, 15 * 60 * 1000, 'api');
-
-// ============================================
 // API ENDPOINTS
 // ============================================
-
-/**
- * Health Check
- */
-app.get('/', (_req: Request, res: Response) => {
-  res.json({
-    name: '3D by SD API',
-    status: 'ok',
-    message: 'Server running',
-    docs: {
-      health: 'GET /api/health',
-      orders: 'POST /api/orders, GET /api/orders?email=',
-      payments: 'POST /api/payments/cashfree/order',
-    },
-  });
-});
-
-app.get('/api', (_req: Request, res: Response) => {
-  res.redirect(302, '/api/health');
-});
-
-app.get('/api/health', async (_req: Request, res: Response) => {
-  let databaseConnected = false;
-  if (isDatabaseConfigured()) {
-    try {
-      await prisma.$queryRawUnsafe('SELECT 1');
-      databaseConnected = true;
-    } catch {
-      databaseConnected = false;
-    }
-  }
-
-  res.json({
-    status: 'ok',
-    databaseConfigured: isDatabaseConfigured(),
-    databaseConnected,
-    timestamp: new Date().toISOString(),
-  });
-});
 
 app.post('/api/payments/cashfree/order', async (req, res) => {
   try {
     const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
-    const cfOrder = await createCashfreeOrder({
+    const { data, error } = await createCashfreeOrder({
       orderId,
       orderAmount: amount,
       customerName,
@@ -122,11 +54,11 @@ app.post('/api/payments/cashfree/order', async (req, res) => {
       customerPhone,
     });
 
-    if (!cfOrder) {
-      return res.status(500).json({ success: false, error: 'Failed to create Cashfree order' });
+    if (error || !data) {
+      return res.status(400).json({ success: false, error: error || 'Failed to create Cashfree order' });
     }
 
-    res.json({ success: true, paymentSessionId: cfOrder.payment_session_id, orderId: cfOrder.order_id });
+    res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -138,7 +70,7 @@ app.post('/api/payments/cashfree/verify', async (req, res) => {
     const cfOrder = await getCashfreeOrder(orderId);
 
     if (!cfOrder || cfOrder.order_status !== 'PAID') {
-      return res.status(400).json({ success: false, error: 'Payment not verified or order not paid' });
+      return res.status(400).json({ success: false, error: 'Payment not verified' });
     }
 
     // Persist order on success
@@ -159,6 +91,14 @@ app.use('/api', commerceRoutes);
 app.use('/api', publicRoutes);
 app.use('/api', webhooksRoutes);
 
+app.get('/api/health', async (_req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    databaseConfigured: isDatabaseConfigured(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Start server
 void connectDatabase();
 
@@ -167,34 +107,8 @@ app.listen(PORT, () => {
 ╔════════════════════════════════════════╗
 ║         3D BY SD SERVER RUNNING        ║
 ╚════════════════════════════════════════╝
-
-💾 Database: ${process.env.DATABASE_URL ? '✅ Configured' : '⚠️  Not configured'}
-
-Server running on: http://localhost:${PORT}
-Health check: GET /api/health
-
-Commerce API:
-  POST /api/orders
-  GET  /api/orders?email=
-  GET  /api/orders/:orderId
-  POST /api/newsletter/subscribe
-  POST /api/custom-requests (multipart)
-
-Payments (Cashfree):
-  POST /api/payments/cashfree/order
-  POST /api/payments/cashfree/verify
-
-Public catalog:
-  GET  /api/site/config
-  GET  /api/products
-
-Webhooks:
-  POST /api/webhooks/razorpay (deprecated)
-  `);
-
-  if (!process.env.DATABASE_URL) {
-    console.warn('⚠️  DATABASE_URL missing — orders API disabled.');
-  }
+PORT: ${PORT}
+`);
 });
 
 export default app;

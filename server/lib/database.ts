@@ -1,19 +1,39 @@
 import '../env';
 import { PrismaClient } from '@prisma/client';
 
+function createFallbackPrismaClient(): PrismaClient {
+  return new Proxy({}, {
+    get() {
+      throw new Error('DATABASE_URL is not configured');
+    },
+  }) as PrismaClient;
+}
+
+function createPrismaClient(): PrismaClient {
+  if (!process.env.DATABASE_URL?.trim()) {
+    return createFallbackPrismaClient();
+  }
+
+  try {
+    return new PrismaClient();
+  } catch {
+    return createFallbackPrismaClient();
+  }
+}
+
 // Singleton instance to prevent exhausting connections in serverless environments
 let prisma: PrismaClient;
 
-if (process.env.NODE_ENV === 'production') {
-  prisma = new PrismaClient();
-} else {
+if (!process.env.VERCEL) {
   // @ts-ignore
   if (!global.prisma) {
     // @ts-ignore
-    global.prisma = new PrismaClient();
+    global.prisma = createPrismaClient();
   }
   // @ts-ignore
   prisma = global.prisma;
+} else {
+  prisma = createPrismaClient();
 }
 
 // Handle graceful shutdown for non-serverless environments

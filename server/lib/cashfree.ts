@@ -6,6 +6,7 @@
 type CashfreeMode = 'sandbox' | 'production';
 
 const CASHFREE_MODE = (process.env.CASHFREE_MODE || process.env.NODE_ENV || 'development').toLowerCase();
+const VERCEL_ENV = (process.env.VERCEL_ENV || '').toLowerCase();
 const PRODUCTION_BASE_URL = 'https://api.cashfree.com/pg';
 const SANDBOX_BASE_URL = 'https://sandbox.cashfree.com/pg';
 
@@ -33,7 +34,7 @@ function isLocalHostname(hostname: string) {
 }
 
 function getRuntime(origin?: string): { mode: CashfreeMode; baseUrl: string } {
-  const requestedProduction = CASHFREE_MODE === 'production';
+  const requestedProduction = CASHFREE_MODE === 'production' && VERCEL_ENV === 'production';
   const localRequest = isLocalHostname(getHostname(origin));
   const mode: CashfreeMode = requestedProduction && !localRequest ? 'production' : 'sandbox';
 
@@ -47,9 +48,12 @@ function getReturnUrl(origin?: string) {
   const configuredFrontendUrl = process.env.FRONTEND_URL?.trim();
   const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
   const originIsLocal = isLocalHostname(getHostname(origin));
+  const isProductionDeployment = VERCEL_ENV === 'production';
   const baseUrl = originIsLocal
     ? origin
-    : configuredFrontendUrl || origin || vercelUrl || 'http://localhost:3000';
+    : isProductionDeployment
+      ? configuredFrontendUrl || origin || vercelUrl || 'http://localhost:3000'
+      : origin || vercelUrl || configuredFrontendUrl || 'http://localhost:3000';
   return `${baseUrl.replace(/\/$/, '')}/order-success?order_id={order_id}`;
 }
 

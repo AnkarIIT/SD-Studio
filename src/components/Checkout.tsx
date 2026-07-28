@@ -14,6 +14,25 @@ declare const Cashfree: any;
 
 const STORAGE_KEY = 'lb_checkout_address';
 
+async function readApiResponse(res: Response) {
+  const contentType = res.headers.get('content-type') || '';
+  const body = await res.text();
+
+  if (contentType.includes('application/json')) {
+    try {
+      return body ? JSON.parse(body) : {};
+    } catch {
+      throw new Error('Payment server returned malformed JSON.');
+    }
+  }
+
+  if (res.status === 401 || body.includes('Protected deployment') || body.includes('sso-api')) {
+    throw new Error('Vercel deployment is protected. Disable Deployment Protection or test on the production domain.');
+  }
+
+  throw new Error(`Payment server returned ${res.status || 'an invalid response'}. Check Vercel function logs.`);
+}
+
 export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpen: boolean; items: CartItem[]; onClose: () => void; onComplete: (o: Order) => void }) {
   // Initialize with empty address
   const [address, setAddress] = useState<Address>({ fullName: '', email: '', phone: '', street: '', city: '', state: '', pincode: '', country: 'India' });
@@ -59,15 +78,11 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
       const res = await fetch('/api/payments/cashfree/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({ orderId, amount: totals.total, customerName: address.fullName, customerEmail: address.email, customerPhone: address.phone })
       });
 
-      let data;
-      try {
-        data = await res.json();
-      } catch (e) {
-        throw new Error('Server returned invalid response. Please redeploy Vercel changes.');
-      }
+      const data = await readApiResponse(res);
 
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create order');
 
@@ -79,10 +94,11 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
           const vRes = await fetch('/api/payments/cashfree/verify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
             body: JSON.stringify({ orderId, orderPayload: { id: orderId, items, ...totals, shippingAddress: address, couponCode: appliedCoupon } })
           });
 
-          const vData = await vRes.json();
+          const vData = await readApiResponse(vRes);
           if (vData.success) {
             addOrder(vData.order);
             clearCart();

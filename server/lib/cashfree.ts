@@ -1,17 +1,21 @@
 /**
- * 💳 CLEAN RESET: Cashfree Production Integration
- * Optimized for Vercel Serverless
+ * Cashfree integration.
+ * Uses environment variables so deployments can switch between sandbox and production safely.
  */
 
-const IS_PROD = true;
+const CASHFREE_MODE = (process.env.CASHFREE_MODE || process.env.NODE_ENV || 'development').toLowerCase();
+const IS_PROD = CASHFREE_MODE === 'production';
 const BASE_URL = IS_PROD ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
 
-// Production Credentials
-const APP_ID = '13004828759f4aa002bfefde4482840031';
-const SECRET_KEY = process.env.CASHFREE_SECRET_KEY || 'cfsk_ma_prod_72d7de80c99f14da1353233f3ff903f2_1b92b30c';
+const APP_ID = process.env.CASHFREE_APP_ID?.trim();
+const SECRET_KEY = process.env.CASHFREE_SECRET_KEY?.trim();
 
 export async function createCashfreeOrder(payload: any) {
   try {
+    if (!APP_ID || !SECRET_KEY) {
+      return { error: 'Cashfree credentials are not configured' };
+    }
+
     const response = await fetch(`${BASE_URL}/orders`, {
       method: 'POST',
       headers: {
@@ -40,12 +44,14 @@ export async function createCashfreeOrder(payload: any) {
     if (!response.ok) return { error: data.message || 'Cashfree API Error' };
     return { data };
   } catch (err: any) {
-    return { error: 'Connection to Cashfree failed' };
+    return { error: err?.message || 'Connection to Cashfree failed' };
   }
 }
 
 export async function verifyCashfreePayment(orderId: string) {
   try {
+    if (!APP_ID || !SECRET_KEY) return false;
+
     const response = await fetch(`${BASE_URL}/orders/${orderId}`, {
       method: 'GET',
       headers: {

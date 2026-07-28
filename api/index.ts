@@ -63,4 +63,11 @@ app.use('/api', webhooksRoutes);
 // Database init for serverless
 void connectDatabase();
 
+if (!process.env.VERCEL) {
+  const port = Number(process.env.NOTIFICATION_PORT || 5001);
+  app.listen(port, () => {
+    console.log(`✅ API server listening on http://localhost:${port}`);
+  });
+}
+
 export default app;

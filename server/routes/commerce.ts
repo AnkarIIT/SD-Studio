@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import multer from 'multer';
 
@@ -21,7 +22,8 @@ const router = Router();
 router.use(publicRoutes);
 router.use(webhookRoutes);
 
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'custom-lab');
+const UPLOAD_ROOT = process.env.VERCEL ? os.tmpdir() : process.cwd();
+const UPLOAD_DIR = path.join(UPLOAD_ROOT, 'uploads', 'custom-lab');
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const upload = multer({

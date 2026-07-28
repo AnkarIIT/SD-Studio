@@ -21,20 +21,22 @@ app.use(bodyParser.urlencoded({ extended: true }));
 // --- CASHFREE ---
 app.post('/api/payments/cashfree/order', async (req: Request, res: Response) => {
   const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
-  const { data, error } = await createCashfreeOrder({
+  const origin = req.headers.origin;
+  const { data, error, mode } = await createCashfreeOrder({
     orderId,
     amount,
     name: customerName,
     email: customerEmail,
     phone: customerPhone
-  });
+  }, origin);
   if (error) return res.status(400).json({ success: false, error });
-  res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id });
+  res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id, cashfreeMode: mode });
 });
 
 app.post('/api/payments/cashfree/verify', async (req: Request, res: Response) => {
   const { orderId, orderPayload } = req.body;
-  const isPaid = await verifyCashfreePayment(orderId);
+  const origin = req.headers.origin;
+  const isPaid = await verifyCashfreePayment(orderId, origin);
   if (!isPaid) return res.status(400).json({ success: false, error: 'Payment not verified' });
 
   try {

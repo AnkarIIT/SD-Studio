@@ -71,7 +71,7 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
 
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create order');
 
-      const cashfree = Cashfree({ mode: data.demo ? 'sandbox' : 'production' });
+      const cashfree = Cashfree({ mode: data.cashfreeMode ?? 'sandbox' });
       cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: "_modal" })
         .then(async (result: any) => {
           if (result.error) { toast.error(result.error.message); setIsProcessing(false); return; }

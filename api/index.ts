@@ -1,15 +1,8 @@
-import express, { Express, Request, Response } from 'express';
+import express from 'express';
+import type { Express, NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import '../server/env'; // Load env first
-
-// Import Logic
-import commerceRoutes from '../server/routes/commerce';
-import publicRoutes from '../server/routes/public';
-import webhooksRoutes from '../server/routes/webhooks';
-import { createCashfreeOrder, verifyCashfreePayment } from '../server/lib/cashfree';
-import { persistOrder } from '../server/lib/orders';
-import { connectDatabase } from '../server/lib/db-connect';
 
 const app: Express = express();
 
@@ -17,33 +10,51 @@ const app: Express = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+  if (err) {
+    return res.status(err.status || 400).json({
+      success: false,
+      error: err?.message || 'Invalid request body',
+    });
+  }
+  return next();
+});
 
 // --- CASHFREE ---
 app.post('/api/payments/cashfree/order', async (req: Request, res: Response) => {
-  const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
-  const origin = req.headers.origin;
-  const { data, error, mode } = await createCashfreeOrder({
-    orderId,
-    amount,
-    name: customerName,
-    email: customerEmail,
-    phone: customerPhone
-  }, origin);
-  if (error) return res.status(400).json({ success: false, error });
-  res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id, cashfreeMode: mode });
+  try {
+    const { createCashfreeOrder } = await import('../server/lib/cashfree');
+    const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
+    const origin = req.headers.origin;
+    const { data, error, mode } = await createCashfreeOrder({
+      orderId,
+      amount,
+      name: customerName,
+      email: customerEmail,
+      phone: customerPhone
+    }, origin);
+    if (error) return res.status(400).json({ success: false, error });
+    res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id, cashfreeMode: mode });
+  } catch (err: any) {
+    console.error('Cashfree order route failed:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Payment order route failed' });
+  }
 });
 
 app.post('/api/payments/cashfree/verify', async (req: Request, res: Response) => {
-  const { orderId, orderPayload } = req.body;
-  const origin = req.headers.origin;
-  const isPaid = await verifyCashfreePayment(orderId, origin);
-  if (!isPaid) return res.status(400).json({ success: false, error: 'Payment not verified' });
-
   try {
+    const { verifyCashfreePayment } = await import('../server/lib/cashfree');
+    const { persistOrder } = await import('../server/lib/orders');
+    const { orderId, orderPayload } = req.body;
+    const origin = req.headers.origin;
+    const isPaid = await verifyCashfreePayment(orderId, origin);
+    if (!isPaid) return res.status(400).json({ success: false, error: 'Payment not verified' });
+
     const order = await persistOrder({ ...orderPayload, status: 'confirmed', paymentMethod: 'card' });
     res.json({ success: true, order });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: 'Order persistence failed' });
+    console.error('Cashfree verify route failed:', err);
+    res.status(500).json({ success: false, error: err?.message || 'Order persistence failed' });
   }
 });
 
@@ -58,12 +69,23 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- MOUNT ROUTES ---
-app.use('/api', commerceRoutes);
-app.use('/api', publicRoutes);
-app.use('/api', webhooksRoutes);
+app.use('/api', async (req: Request, res: Response, next) => {
+  try {
+    const [{ default: commerceRoutes }, { default: publicRoutes }, { default: webhooksRoutes }] = await Promise.all([
+      import('../server/routes/commerce'),
+      import('../server/routes/public'),
+      import('../server/routes/webhooks'),
+    ]);
 
-// Database init for serverless
-void connectDatabase();
+    return express.Router()
+      .use(commerceRoutes)
+      .use(publicRoutes)
+      .use(webhooksRoutes)(req, res, next);
+  } catch (err: any) {
+    console.error('API route mount failed:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'API route failed' });
+  }
+});
 
 if (!process.env.VERCEL) {
   const port = Number(process.env.NOTIFICATION_PORT || 5001);

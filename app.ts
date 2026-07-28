@@ -88,11 +88,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- SERVER START (Local Only) ---
+// Note: Vercel does not use app.listen(), it uses the exported app.
 if (!process.env.VERCEL) {
   void connectDatabase();
   app.listen(PORT, () => console.log(`🚀 Server ready on port ${PORT}`));
 } else {
-  // On Vercel, we just ensure DB connection logic is primed
+  // On Vercel, ensuring DB connection logic is primed
   void connectDatabase();
 }
 

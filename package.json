@@ -9,7 +9,7 @@
     "build": "prisma generate && vite build",
     "prisma:generate": "prisma generate",
     "preview": "vite preview",
-    "server": "tsx watch app.ts",
+    "server": "tsx watch api/index.ts",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "clean": "rm -rf dist",

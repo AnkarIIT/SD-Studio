@@ -1,26 +1,66 @@
-// GLOBAL ERROR HANDLER FOR VERCEL
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+import express, { Express, Request, Response } from 'express';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import '../server/env'; // Load env first
+
+// Import Logic
+import commerceRoutes from '../server/routes/commerce';
+import publicRoutes from '../server/routes/public';
+import webhooksRoutes from '../server/routes/webhooks';
+import { createCashfreeOrder, verifyCashfreePayment } from '../server/lib/cashfree';
+import { persistOrder } from '../server/lib/orders';
+import { connectDatabase } from '../server/lib/db-connect';
+
+const app: Express = express();
+
+// Middleware
+app.use(cors({ origin: true, credentials: true }));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// --- CASHFREE ---
+app.post('/api/payments/cashfree/order', async (req: Request, res: Response) => {
+  const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
+  const { data, error } = await createCashfreeOrder({
+    orderId,
+    amount,
+    name: customerName,
+    email: customerEmail,
+    phone: customerPhone
+  });
+  if (error) return res.status(400).json({ success: false, error });
+  res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id });
 });
 
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception thrown:', err);
-});
+app.post('/api/payments/cashfree/verify', async (req: Request, res: Response) => {
+  const { orderId, orderPayload } = req.body;
+  const isPaid = await verifyCashfreePayment(orderId);
+  if (!isPaid) return res.status(400).json({ success: false, error: 'Payment not verified' });
 
-import app from '../app';
-
-export default async function handler(req: any, res: any) {
   try {
-    return app(req, res);
-  } catch (error: any) {
-    console.error('CRITICAL SERVER ERROR:', error);
-    if (!res.headersSent) {
-      res.status(500).json({
-        success: false,
-        error: 'Critical Server Error',
-        message: error.message,
-        path: req.url
-      });
-    }
+    const order = await persistOrder({ ...orderPayload, status: 'confirmed', paymentMethod: 'card' });
+    res.json({ success: true, order });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: 'Order persistence failed' });
   }
-}
+});
+
+// --- PING ---
+app.get('/api/ping', (req, res) => {
+  res.json({ success: true, message: 'pong', timestamp: new Date().toISOString() });
+});
+
+// --- HEALTH ---
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', vercel: !!process.env.VERCEL });
+});
+
+// --- MOUNT ROUTES ---
+app.use('/api', commerceRoutes);
+app.use('/api', publicRoutes);
+app.use('/api', webhooksRoutes);
+
+// Database init for serverless
+void connectDatabase();
+
+export default app;

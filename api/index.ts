@@ -7,7 +7,7 @@ process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception thrown:', err);
 });
 
-import app from '../server.ts';
+import app from '../server';
 
 export default async function handler(req: any, res: any) {
   try {

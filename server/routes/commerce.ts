@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -22,6 +23,14 @@ import {
 } from '../lib/order-access';
 
 const router = Router();
+
+const orderLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many order requests. Try again later.' },
+});
 
 router.use(publicRoutes);
 router.use(webhookRoutes);
@@ -53,8 +62,8 @@ function dbUnavailable(res: Response) {
   });
 }
 
-router.post('/orders', async (req: Request, res: Response) => {
-  if (!isDatabaseConfigured()) return dbUnavailable(res);
+router.post('/orders', orderLimiter, async (req: Request, res: Response) => {
+  if (!(await isDatabaseConfigured())) return dbUnavailable(res);
 
   try {
     const body = req.body as CreateOrderPayload;
@@ -78,7 +87,7 @@ router.post('/orders', async (req: Request, res: Response) => {
 });
 
 router.get('/orders', requireOrderEmailMatch, async (req: Request, res: Response) => {
-  if (!isDatabaseConfigured()) return dbUnavailable(res);
+  if (!(await isDatabaseConfigured())) return dbUnavailable(res);
 
   const email =
     (req as RequestWithOrderAccess).orderAccessEmail ||
@@ -97,7 +106,7 @@ router.get('/orders', requireOrderEmailMatch, async (req: Request, res: Response
 });
 
 router.get('/orders/:orderId', async (req: Request, res: Response) => {
-  if (!isDatabaseConfigured()) return dbUnavailable(res);
+  if (!(await isDatabaseConfigured())) return dbUnavailable(res);
 
   try {
     const tokenEmail = getOrderAccessEmailFromRequest(req);
@@ -120,7 +129,7 @@ router.get('/orders/:orderId', async (req: Request, res: Response) => {
 });
 
 router.post('/newsletter/subscribe', async (req: Request, res: Response) => {
-  if (!isDatabaseConfigured()) return dbUnavailable(res);
+  if (!(await isDatabaseConfigured())) return dbUnavailable(res);
 
   const email = String(req.body?.email ?? '')
     .trim()
@@ -153,7 +162,7 @@ router.post('/custom-requests', (req, res, next) => {
     next();
   });
 }, async (req: MulterRequest, res: Response) => {
-  if (!isDatabaseConfigured()) return dbUnavailable(res);
+  if (!(await isDatabaseConfigured())) return dbUnavailable(res);
 
   const name = String(req.body?.name ?? '').trim();
   const email = String(req.body?.email ?? '').trim().toLowerCase();

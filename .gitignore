@@ -23,6 +23,7 @@ yarn-error.log*
 # Database & uploads
 prisma/*.db
 prisma/*.db-journal
+prisma/.env
 uploads/
 
 # Environment
@@ -50,3 +51,6 @@ desktop.ini
 # Local dev / agent
 terminals/
 .vercel
+
+# Scraped assets from old site (large)
+scraped_frontend/

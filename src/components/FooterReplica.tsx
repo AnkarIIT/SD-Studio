@@ -57,7 +57,8 @@ export default function FooterReplica() {
               {[
                 { label: 'Instagram', href: 'https://www.instagram.com/3dbysd.in/', target: '_blank', color: 'hover:bg-purple-500/10 border-purple-500/30' },
                 { label: 'WhatsApp', href: `https://wa.me/91${whatsappNumber}`, target: '_blank', color: 'hover:bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400' },
-                { label: 'Email', href: `mailto:${emailAddress}`, target: '_self', color: 'hover:bg-blue-500/10 border-blue-500/30' }
+                { label: 'Email', href: `mailto:${emailAddress}`, target: '_self', color: 'hover:bg-blue-500/10 border-blue-500/30' },
+                { label: 'Facebook', href: 'https://www.facebook.com/profile.php?id=61589850914958', target: '_blank', color: 'hover:bg-blue-600/10 border-blue-600/30 text-blue-600 dark:text-blue-400' }
               ].map((link) => (
                 <motion.a
                   key={link.label}
@@ -72,12 +73,6 @@ export default function FooterReplica() {
                   {link.label}
                 </motion.a>
               ))}
-              <motion.span
-                variants={itemVariants}
-                className="inline-block rounded-full border border-black/10 px-5 py-2.5 text-xs uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500 cursor-not-allowed"
-              >
-                Facebook
-              </motion.span>
             </div>
           </div>
         </motion.div>

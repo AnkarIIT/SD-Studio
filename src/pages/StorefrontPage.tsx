@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import HeaderReplica from '../components/HeaderReplica';
@@ -50,6 +50,7 @@ export default function StorefrontPage() {
   useEffect(() => {
     if (catalogLoading) return;
     const catalogIds = new Set(products.map((p) => p.id));
+    const removed: string[] = [];
     for (const item of useCartStore.getState().items) {
       const catalogProduct = products.find((p) => p.id === item.id);
       if (
@@ -57,8 +58,12 @@ export default function StorefrontPage() {
         catalogProduct?.inStock === false ||
         catalogProduct?.stock === 0
       ) {
+        removed.push(item.name);
         removeItem(item.id);
       }
+    }
+    if (removed.length > 0) {
+      toast.success(`${removed.join(', ')} removed — no longer available`);
     }
   }, [products, catalogLoading, removeItem]);
 

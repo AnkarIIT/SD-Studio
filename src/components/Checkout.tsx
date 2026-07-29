@@ -93,21 +93,27 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
 
     if (!isAuthenticated) {
       toast.error('Please sign in to place an order');
-      setIsProcessing(false);
       return;
     }
 
+    setIsProcessing(true);
     setSdkError('');
     const orderId = `SD-ORD-${Date.now().toString(36).toUpperCase()}`;
     const authHeaders: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
 
     try {
-      // Try Cashfree first
       const cfRes = await fetch('/api/payments/cashfree/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders },
         credentials: 'same-origin',
-        body: JSON.stringify({ orderId, amount: totals.total, customerName: address.fullName, customerEmail: address.email, customerPhone: address.phone })
+        body: JSON.stringify({
+          orderId,
+          items: items.map(i => ({ id: i.id, quantity: i.quantity })),
+          couponCode: appliedCoupon || undefined,
+          customerName: address.fullName,
+          customerEmail: address.email,
+          customerPhone: address.phone,
+        })
       });
 
       const cfData = await readApiResponse(cfRes);
@@ -116,16 +122,9 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
         throw new Error(cfData.error || 'Payment gateway unavailable');
       }
 
-      const paymentFlow = async () => {
-        if (cfData.cashfreeMode === 'demo') {
-          return { orderId };
-        }
-        const Cashfree = await loadCashfreeSdk(cfData.cashfreeMode ?? 'sandbox');
-        cashfreeRef.current = Cashfree({ mode: cfData.cashfreeMode ?? 'sandbox' });
-        return cashfreeRef.current.checkout({ paymentSessionId: cfData.paymentSessionId, redirectTarget: "_modal" });
-      };
-
-      paymentFlow()
+      const Cashfree = await loadCashfreeSdk('production');
+      cashfreeRef.current = Cashfree({ mode: 'production' });
+      cashfreeRef.current.checkout({ paymentSessionId: cfData.paymentSessionId, redirectTarget: "_modal" })
         .then(async (result: any) => {
           if (result?.error) { toast.error(result.error.message); setIsProcessing(false); return; }
 
@@ -133,7 +132,13 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders },
             credentials: 'same-origin',
-            body: JSON.stringify({ orderId, orderPayload: { id: orderId, items, ...totals, shippingAddress: address, couponCode: appliedCoupon } })
+            body: JSON.stringify({
+              orderId,
+              paymentMethod: 'card',
+              items: items.map(i => ({ id: i.id, quantity: i.quantity })),
+              shippingAddress: address,
+              couponCode: appliedCoupon || undefined,
+            })
           });
 
           const vData = await readApiResponse(vRes);

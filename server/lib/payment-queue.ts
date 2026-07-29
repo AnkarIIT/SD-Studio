@@ -65,12 +65,6 @@ export async function listVerificationQueue(status?: string) {
   });
 }
 
-export function shouldAutoVerifyPayments(): boolean {
-  if (process.env.AUTO_VERIFY_PAYMENTS === 'false') return false;
-  if (process.env.AUTO_VERIFY_PAYMENTS === 'true') return true;
-  return process.env.NODE_ENV !== 'production';
-}
-
 export async function advanceOrderStage(orderId: string, stage: TimelineStage, message?: string) {
   await addTimelineEvent(orderId, stage, message);
 

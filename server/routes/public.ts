@@ -7,7 +7,7 @@ import { PRODUCTS } from '../../src/constants';
 const router = Router();
 
 router.get('/site/config', async (_req: Request, res: Response) => {
-  if (!isDatabaseConfigured()) {
+  if (!(await isDatabaseConfigured())) {
     return res.json({ success: true, config: null, source: 'defaults' });
   }
   try {
@@ -20,7 +20,7 @@ router.get('/site/config', async (_req: Request, res: Response) => {
 
 router.get('/products', async (_req: Request, res: Response) => {
   try {
-    if (!isDatabaseConfigured()) {
+    if (!(await isDatabaseConfigured())) {
       return res.json({ success: true, products: PRODUCTS, source: 'static' });
     }
     const products = await getCatalogProducts();

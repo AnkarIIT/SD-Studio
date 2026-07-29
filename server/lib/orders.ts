@@ -1,10 +1,26 @@
 import prisma, { auditRepo, deliveryRepo, paymentRepo } from './database';
 import { addTimelineEvent, seedInitialTimeline } from './timeline';
-import { PRODUCTS } from '../../src/constants';
+import { getCatalogProducts } from './catalog';
 import type { Address, CartItem, Order } from '../../src/types';
 
-export function isDatabaseConfigured(): boolean {
-  return Boolean(process.env.DATABASE_URL?.trim());
+let dbConnectionHealthy: boolean | null = null;
+let lastDbCheck = 0;
+const DB_CHECK_TTL = 30_000;
+
+export async function isDatabaseConfigured(): Promise<boolean> {
+  if (!process.env.DATABASE_URL?.trim()) return false;
+  const now = Date.now();
+  if (dbConnectionHealthy !== null && now - lastDbCheck < DB_CHECK_TTL) {
+    return dbConnectionHealthy;
+  }
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    dbConnectionHealthy = true;
+  } catch {
+    dbConnectionHealthy = false;
+  }
+  lastDbCheck = now;
+  return dbConnectionHealthy;
 }
 
 export type CreateOrderPayload = {
@@ -22,21 +38,24 @@ export type CreateOrderPayload = {
   shippingAddress: Address;
 };
 
-function recalculateOrderTotals(payload: CreateOrderPayload): {
+async function recalculateOrderTotals(payload: CreateOrderPayload): Promise<{
   subtotal: number;
   total: number;
   valid: boolean;
   errors: string[];
-} {
+}> {
   const errors: string[] = [];
 
   if (!payload.items || payload.items.length === 0) {
     return { subtotal: 0, total: 0, valid: false, errors: ['Order must contain at least one item'] };
   }
 
+  const catalogProducts = await getCatalogProducts();
+  const productMap = new Map(catalogProducts.map(p => [p.id, p]));
+
   let calculatedSubtotal = 0;
   for (const item of payload.items) {
-    const catalogProduct = PRODUCTS.find(p => p.id === item.id);
+    const catalogProduct = productMap.get(item.id);
     if (!catalogProduct) {
       errors.push(`Invalid product: ${item.name} (${item.id})`);
       continue;
@@ -70,6 +89,46 @@ function recalculateOrderTotals(payload: CreateOrderPayload): {
     valid: errors.length === 0,
     errors,
   };
+}
+
+export async function computeServerAmount(
+  items: Array<{ id: string; quantity: number }>,
+  couponCode?: string
+): Promise<{ amount: number; errors: string[] }> {
+  const catalogProducts = await getCatalogProducts();
+  const productMap = new Map(catalogProducts.map(p => [p.id, p]));
+
+  const errors: string[] = [];
+  let subtotal = 0;
+
+  for (const item of items) {
+    const product = productMap.get(item.id);
+    if (!product) {
+      errors.push(`Invalid product: ${item.id}`);
+      continue;
+    }
+    subtotal += Math.round(product.price * item.quantity * 100) / 100;
+  }
+
+  if (errors.length > 0) return { amount: 0, errors };
+
+  let total = subtotal;
+
+  if (couponCode) {
+    try {
+      const { getSiteConfig } = await import('./site-config');
+      const config = await getSiteConfig();
+      const coupon = config.coupons?.[couponCode];
+      if (coupon) {
+        const discount = Math.round(subtotal * coupon.percent / 100 * 100) / 100;
+        total -= discount;
+      }
+    } catch { /* ignore coupon lookup errors */ }
+  }
+
+  if (subtotal > 0) total += 249;
+
+  return { amount: Math.round(total * 100) / 100, errors: [] };
 }
 
 function toNum(v: any): number {
@@ -112,7 +171,7 @@ function mapRowToOrder(row: {
 
 export async function persistOrder(payload: CreateOrderPayload): Promise<Order> {
   // Server-side price validation
-  const validation = recalculateOrderTotals(payload);
+  const validation = await recalculateOrderTotals(payload);
   if (!validation.valid) {
     throw new Error(`Order validation failed: ${validation.errors.join('; ')}`);
   }

@@ -17,11 +17,9 @@ interface OrderHistoryProps {
 
 function mergeOrders(local: Order[], remote: Order[]): Order[] {
   const map = new Map<string, Order>();
-  for (const o of [...remote, ...local]) {
-    const existing = map.get(o.id);
-    if (!existing || new Date(o.updatedAt) > new Date(existing.updatedAt)) {
-      map.set(o.id, o);
-    }
+  for (const o of remote) map.set(o.id, o);
+  for (const o of local) {
+    if (!map.has(o.id)) map.set(o.id, o);
   }
   return [...map.values()].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()

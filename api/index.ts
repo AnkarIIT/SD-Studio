@@ -3,23 +3,37 @@ import type { Express, NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
 import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
 import '../server/env'; // Load env first
 
 const app: Express = express();
 
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-  : ['http://localhost:3000', 'http://localhost:5001'];
+const ALLOWED_ORIGINS = (() => {
+  const origins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+    : ['http://localhost:3000', 'http://localhost:5001'];
+  if (process.env.VERCEL) {
+    if (process.env.VERCEL_URL) origins.push(`https://${process.env.VERCEL_URL}`);
+    if (process.env.VERCEL_BRANCH_URL) origins.push(`https://${process.env.VERCEL_BRANCH_URL}`);
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) origins.push(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+  }
+  return origins;
+})();
 
 // Middleware
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || ALLOWED_ORIGINS.some(o => origin === o)) cb(null, true);
+    if (ALLOWED_ORIGINS.some(o => origin === o)) cb(null, true);
     else cb(null, false);
   },
   credentials: true,
 }));
-app.use(bodyParser.json({ limit: '1mb' }));
+app.use(bodyParser.json({
+  limit: '1mb',
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf.toString('utf8');
+  },
+}));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
 // Security headers
@@ -62,20 +76,21 @@ const paymentLimiter = rateLimit({
 app.post('/api/payments/cashfree/order', paymentLimiter, async (req: Request, res: Response) => {
   try {
     const { createCashfreeOrder } = await import('../server/lib/cashfree');
-    const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
+    const { orderId, items, couponCode, customerName, customerEmail, customerPhone } = req.body;
     const origin = req.headers.origin;
     const { data, error, mode } = await createCashfreeOrder({
       orderId,
-      amount,
-      name: customerName,
-      email: customerEmail,
-      phone: customerPhone
+      items,
+      couponCode,
+      customerName,
+      customerEmail,
+      customerPhone,
     }, origin);
     if (error) {
-      console.error('Cashfree order error:', { error, payload: { orderId, amount, customerEmail, customerPhone } });
+      console.error('Cashfree order error:', { error, payload: { orderId, customerEmail } });
       return res.status(400).json({ success: false, error });
     }
-    res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id, cashfreeMode: mode });
+    res.json({ success: true, paymentSessionId: data.payment_session_id, orderId: data.order_id });
   } catch (err: any) {
     console.error('Cashfree order route failed:', err);
     res.status(500).json({ success: false, error: err?.message || 'Payment order route failed' });
@@ -86,12 +101,34 @@ app.post('/api/payments/cashfree/verify', paymentLimiter, async (req: Request, r
   try {
     const { verifyCashfreePayment } = await import('../server/lib/cashfree');
     const { persistOrder } = await import('../server/lib/orders');
-    const { orderId, orderPayload } = req.body;
+    const { getCatalogProducts, getCouponDiscount } = await import('../server/lib/catalog');
+    const { orderId, items, shippingAddress, couponCode, paymentMethod } = req.body;
     const origin = req.headers.origin;
     const isPaid = await verifyCashfreePayment(orderId, origin);
     if (!isPaid) return res.status(400).json({ success: false, error: 'Payment not verified' });
 
-    const order = await persistOrder({ ...orderPayload, status: 'confirmed', paymentMethod: 'card' });
+    const catalog = await getCatalogProducts();
+    const productMap = new Map(catalog.map(p => [p.id, p]));
+    const cartItems: any[] = [];
+    let subtotal = 0;
+    for (const i of items) {
+      const product = productMap.get(i.id);
+      if (!product) return res.status(400).json({ success: false, error: `Invalid product: ${i.id}` });
+      cartItems.push({ ...product, quantity: i.quantity });
+      subtotal += Math.round(product.price * i.quantity * 100) / 100;
+    }
+    const discount = couponCode ? await getCouponDiscount(subtotal, couponCode) : 0;
+    const shipping = subtotal > 0 ? 249 : 0;
+    const total = Math.round((subtotal - discount + shipping) * 100) / 100;
+
+    const orderPayload = {
+      id: orderId, items: cartItems, subtotal, tax: 0, shipping, discount, total,
+      status: 'confirmed' as const,
+      paymentMethod: (paymentMethod || 'card') as any,
+      shippingAddress, couponCode,
+    };
+
+    const order = await persistOrder(orderPayload);
     res.json({ success: true, order });
   } catch (err: any) {
     console.error('Cashfree verify route failed:', err);
@@ -113,9 +150,15 @@ app.get('/api/health', (req, res) => {
 app.post('/api/payments/razorpay/order', paymentLimiter, async (req: Request, res: Response) => {
   try {
     const { createRazorpayOrder, getRazorpayKeyId } = await import('../server/lib/razorpay');
-    const { orderId, amount } = req.body;
-    const { order, demo } = await createRazorpayOrder(amount, orderId);
-    res.json({ success: true, razorpayOrderId: order.id, amount: order.amount, keyId: getRazorpayKeyId(), demo });
+    const { computeServerAmount } = await import('../server/lib/orders');
+    const { orderId, items, couponCode } = req.body;
+    const { amount, errors } = await computeServerAmount(items, couponCode);
+    if (errors.length > 0) {
+      return res.status(400).json({ success: false, error: errors.join('; ') });
+    }
+    const amountPaise = Math.round(amount * 100);
+    const order = await createRazorpayOrder(amountPaise, orderId);
+    res.json({ success: true, razorpayOrderId: order.id, amount: order.amount, keyId: getRazorpayKeyId() });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Razorpay order failed' });
   }
@@ -125,12 +168,35 @@ app.post('/api/payments/razorpay/verify', paymentLimiter, async (req: Request, r
   try {
     const { verifyRazorpaySignature } = await import('../server/lib/razorpay');
     const { persistOrder } = await import('../server/lib/orders');
-    const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature, orderPayload } = req.body;
+    const { getCatalogProducts, getCouponDiscount } = await import('../server/lib/catalog');
+    const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature, items, shippingAddress, couponCode } = req.body;
 
     const valid = verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
     if (!valid) return res.status(400).json({ success: false, error: 'Invalid payment signature' });
 
-    const order = await persistOrder({ ...orderPayload, id: orderId, status: 'paid', paymentMethod: 'razorpay', paymentId: razorpayPaymentId });
+    const catalog = await getCatalogProducts();
+    const productMap = new Map(catalog.map(p => [p.id, p]));
+    const cartItems: any[] = [];
+    let subtotal = 0;
+    for (const i of items) {
+      const product = productMap.get(i.id);
+      if (!product) return res.status(400).json({ success: false, error: `Invalid product: ${i.id}` });
+      cartItems.push({ ...product, quantity: i.quantity });
+      subtotal += Math.round(product.price * i.quantity * 100) / 100;
+    }
+    const discount = couponCode ? await getCouponDiscount(subtotal, couponCode) : 0;
+    const shipping = subtotal > 0 ? 249 : 0;
+    const total = Math.round((subtotal - discount + shipping) * 100) / 100;
+
+    const orderPayload = {
+      id: orderId, items: cartItems, subtotal, tax: 0, shipping, discount, total,
+      status: 'paid' as const,
+      paymentMethod: 'razorpay' as any,
+      paymentId: razorpayPaymentId,
+      shippingAddress, couponCode,
+    };
+
+    const order = await persistOrder(orderPayload);
     res.json({ success: true, order });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Razorpay verify failed' });
@@ -145,11 +211,9 @@ app.get('/api/payments/config', async (_req: Request, res: Response) => {
     res.json({
       razorpayEnabled: configured,
       keyId: configured ? getRazorpayKeyId() : undefined,
-      demoMode: !configured,
-      autoVerify: process.env.AUTO_VERIFY_PAYMENTS !== 'false',
     });
   } catch {
-    res.json({ razorpayEnabled: false, demoMode: true, autoVerify: true });
+    res.json({ razorpayEnabled: false });
   }
 });
 
@@ -159,18 +223,9 @@ app.post('/api/payments/verify-queue', paymentLimiter, async (req: Request, res:
     const { enqueuePaymentVerification } = await import('../server/lib/payment-queue');
     const { orderId, method, reference, amount } = req.body;
 
-    const entry = await enqueuePaymentVerification({ orderId, method, reference, amount });
+    await enqueuePaymentVerification({ orderId, method, reference, amount });
 
-    // In production, always queue for manual verification
-    // In dev, auto-verify for testing convenience
-    const isDev = !process.env.VERCEL && process.env.NODE_ENV !== 'production';
-    if (process.env.AUTO_VERIFY_PAYMENTS === 'true' || (isDev && process.env.AUTO_VERIFY_PAYMENTS !== 'false')) {
-      const { approvePaymentVerification } = await import('../server/lib/payment-queue');
-      const result = await approvePaymentVerification(entry.id);
-      return res.json({ success: true, autoVerified: true, message: 'Payment auto-verified', order: result.order });
-    }
-
-    res.json({ success: true, autoVerified: false, message: 'Queued for manual verification', entry });
+    res.json({ success: true, autoVerified: false, message: 'Queued for manual verification' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Verification queue failed' });
   }
@@ -208,25 +263,49 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const DUMMY_BCRYPT_HASH = '$2b$12$LJ3m4ys3Lk0TSwHlgntFou0N4F1k7tCBmGspMOFNYpSZqJk/Mn/pe';
 
-function getJwtSecret(): string {
-  const secret = process.env.ORDER_ACCESS_SECRET?.trim();
-  if (secret) return secret;
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-    throw new Error('ORDER_ACCESS_SECRET environment variable is required in production');
+let _jwtSecret: string | null = null;
+
+async function getJwtSecret(): Promise<string> {
+  if (_jwtSecret) return _jwtSecret;
+
+  const envSecret = process.env.ORDER_ACCESS_SECRET?.trim();
+  if (envSecret) {
+    _jwtSecret = envSecret;
+    return _jwtSecret;
   }
-  console.warn('⚠️  ORDER_ACCESS_SECRET not set — using development fallback. Set it in production.');
-  return 'sd-jwt-dev-secret';
+
+  try {
+    const prisma = (await import('../server/lib/database')).default;
+    const row = await prisma.siteConfig.findUnique({ where: { id: 'jwt_secret' } });
+    if (row?.data) {
+      _jwtSecret = row.data;
+      return _jwtSecret;
+    }
+  } catch { /* DB not available — will generate ephemeral */ }
+
+  const generated = crypto.randomBytes(32).toString('hex');
+  try {
+    const prisma = (await import('../server/lib/database')).default;
+    await prisma.siteConfig.upsert({
+      where: { id: 'jwt_secret' },
+      create: { id: 'jwt_secret', data: generated },
+      update: { data: generated },
+    });
+  } catch { /* DB not available — secret will not persist across restarts */ }
+
+  _jwtSecret = generated;
+  console.error('❌ ORDER_ACCESS_SECRET not set. Generated a stable secret stored in DB. Set ORDER_ACCESS_SECRET in env for full control.');
+  return _jwtSecret;
 }
 
-const JWT_SECRET = getJwtSecret();
-
-function authMiddleware(req: Request, res: Response, next: NextFunction) {
+async function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, error: 'Authentication required' });
   }
   try {
-    const payload = jwt.verify(auth.slice(7), JWT_SECRET) as { email: string; name: string };
+    const secret = await getJwtSecret();
+    const payload = jwt.verify(auth.slice(7), secret) as { email: string; name: string };
     (req as any).user = payload;
     next();
   } catch {
@@ -252,7 +331,8 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
     const user = await prisma.user.create({
       data: { name: name.trim(), email: normalizedEmail, password: hashed, role: 'customer' },
     });
-    const token = jwt.sign({ email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+    const secret = await getJwtSecret();
+    const token = jwt.sign({ email: user.email, name: user.name }, secret, { expiresIn: '7d' });
     res.status(201).json({ success: true, token, user: { name: user.name, email: user.email } });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Registration failed' });
@@ -270,8 +350,10 @@ app.post('/api/auth/login', authLimiter, async (req: Request, res: Response) => 
     const hash = user?.password ?? DUMMY_BCRYPT_HASH;
     const valid = await bcrypt.compare(password, hash);
     if (!user || !valid) return res.status(401).json({ success: false, error: 'Invalid email or password' });
+    if (!user.isActive) return res.status(403).json({ success: false, error: 'Account is disabled. Contact support.' });
 
-    const token = jwt.sign({ email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
+    const secret = await getJwtSecret();
+    const token = jwt.sign({ email: user.email, name: user.name }, secret, { expiresIn: '7d' });
     res.json({ success: true, token, user: { name: user.name, email: user.email } });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err?.message || 'Login failed' });

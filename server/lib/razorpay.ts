@@ -1,7 +1,5 @@
 import crypto from 'crypto';
 
-const demoOrderIds = new Set<string>();
-
 export function isRazorpayConfigured(): boolean {
   return Boolean(
     process.env.RAZORPAY_KEY_ID?.trim() && process.env.RAZORPAY_KEY_SECRET?.trim()
@@ -21,27 +19,11 @@ type RazorpayOrderResponse = {
 };
 
 export async function createRazorpayOrder(
-  amountInr: number,
+  amountPaise: number,
   receipt: string
-): Promise<{ order: RazorpayOrderResponse; demo: boolean }> {
-  const amountPaise = Math.round(amountInr * 100);
-
+): Promise<RazorpayOrderResponse> {
   if (!isRazorpayConfigured()) {
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-      throw new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
-    }
-    const demoOrderId = `order_demo_${Date.now()}`;
-    if (receipt) demoOrderIds.add(demoOrderId);
-    return {
-      demo: true,
-      order: {
-        id: demoOrderId,
-        amount: amountPaise,
-        currency: 'INR',
-        receipt,
-        status: 'created',
-      },
-    };
+    throw new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
   }
 
   const keyId = process.env.RAZORPAY_KEY_ID!;
@@ -67,7 +49,7 @@ export async function createRazorpayOrder(
     throw new Error(data.error?.description ?? 'Razorpay order creation failed');
   }
 
-  return { order: data, demo: false };
+  return data;
 }
 
 export function verifyRazorpaySignature(
@@ -76,10 +58,7 @@ export function verifyRazorpaySignature(
   signature: string
 ): boolean {
   const secret = process.env.RAZORPAY_KEY_SECRET?.trim();
-  if (!secret) {
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) return false;
-    return demoOrderIds.has(razorpayOrderId);
-  }
+  if (!secret) return false;
 
   const expected = crypto
     .createHmac('sha256', secret)

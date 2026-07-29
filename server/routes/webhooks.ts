@@ -17,9 +17,9 @@ router.post(
   '/webhooks/razorpay',
   async (req: Request, res: Response) => {
     const signature = String(req.headers['x-razorpay-signature'] ?? '');
-    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const rawBody = (req as any).rawBody;
 
-    if (!verifyWebhookSignature(rawBody, signature)) {
+    if (!rawBody || !verifyWebhookSignature(rawBody, signature)) {
       return res.status(400).json({ success: false, error: 'Invalid webhook signature' });
     }
 
@@ -65,8 +65,11 @@ router.post(
 );
 
 function verifyCashfreeWebhook(body: string, signature: string, timestamp: string): boolean {
-  const secretKey = process.env.CASHFREE_WEBHOOK_SECRET?.trim() || process.env.CASHFREE_SECRET_KEY?.trim();
-  if (!secretKey) return false;
+  const secretKey = process.env.CASHFREE_WEBHOOK_SECRET?.trim();
+  if (!secretKey) {
+    console.error('CASHFREE_WEBHOOK_SECRET is not set — webhook verification disabled');
+    return false;
+  }
   const payload = `${timestamp}.${body}`;
   const expected = crypto.createHmac('sha256', secretKey).update(payload).digest('base64');
   return expected === signature;

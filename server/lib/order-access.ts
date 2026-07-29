@@ -6,11 +6,8 @@ const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 function getSecret(): string {
   const secret = process.env.ORDER_ACCESS_SECRET?.trim();
   if (secret) return secret;
-  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-    throw new Error('ORDER_ACCESS_SECRET environment variable is required in production');
-  }
-  console.warn('⚠️  ORDER_ACCESS_SECRET not set in order-access.ts — using dev fallback');
-  return 'sd-order-access-dev';
+  console.error('❌ ORDER_ACCESS_SECRET not set. Tokens will invalidate on restart.');
+  return crypto.randomBytes(32).toString('hex');
 }
 
 type TokenPayload = { email: string; exp: number };

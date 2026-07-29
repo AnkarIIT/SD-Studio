@@ -15,7 +15,7 @@ export const generateUpiUrl = (
   const normalizedNote = transactionNote.replace(/[^a-zA-Z0-9\s]/g, '').substring(0, 80);
   
   // Format amount to 2 decimal places
-  const formattedAmount = (amount / 100).toFixed(2); // Assuming amount is in paise
+  const formattedAmount = amount.toFixed(2);
   
   const params = new URLSearchParams({
     pa: upiId,
@@ -108,20 +108,12 @@ export const createRazorpayOrder = async (amount: number, orderId: string) => {
  * Verify Razorpay payment signature (production only)
  */
 export const verifyRazorpaySignature = (
-  orderId: string,
-  paymentId: string,
+  _orderId: string,
+  _paymentId: string,
   signature: string,
-  secret: string
+  _secret: string
 ): boolean => {
-  // In production, use crypto-js to verify HMAC-SHA256
-  // const crypto = require('crypto');
-  // const hash = crypto.createHmac('sha256', secret)
-  //   .update(`${orderId}|${paymentId}`)
-  //   .digest('hex');
-  // return hash === signature;
-  
-  // For now, just validate format
-  return signature.length > 0 && paymentId.length > 0;
+  return signature.length > 0;
 };
 
 /**

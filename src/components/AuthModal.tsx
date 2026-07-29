@@ -96,7 +96,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: { isOpen: bool
                 <span className="text-[10px] font-black uppercase text-zinc-400 mb-1.5 block">Password</span>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} className="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl py-3 pl-10 pr-4 text-sm outline-none bg-transparent focus:border-[#925FE2] transition-colors" placeholder="At least 6 characters" />
+                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} className="w-full border border-zinc-200 dark:border-zinc-700 rounded-xl py-3 pl-10 pr-4 text-sm outline-none bg-transparent focus:border-[#925FE2] transition-colors" placeholder="At least 8 characters (upper, lower, digit)" />
                 </div>
               </label>
 

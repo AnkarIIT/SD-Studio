@@ -5,8 +5,6 @@ const API_BASE = import.meta.env.VITE_NOTIFICATION_API_URL || '';
 export type PaymentConfig = {
   razorpayEnabled: boolean;
   keyId?: string;
-  demoMode: boolean;
-  autoVerify: boolean;
 };
 
 export function loadRazorpayScript(): Promise<boolean> {
@@ -30,34 +28,33 @@ export function loadRazorpayScript(): Promise<boolean> {
 
 export async function fetchPaymentConfig(): Promise<PaymentConfig> {
   try {
-    const data = await fetchJSON<{ razorpayEnabled?: boolean; keyId?: string; demoMode?: boolean; autoVerify?: boolean }>(`${API_BASE}/api/payments/config`);
+    const data = await fetchJSON<{ razorpayEnabled?: boolean; keyId?: string }>(`${API_BASE}/api/payments/config`);
     return {
       razorpayEnabled: Boolean(data.razorpayEnabled || data.keyId),
       keyId: data.keyId,
-      demoMode: Boolean(data.demoMode),
-      autoVerify: Boolean(data.autoVerify),
     };
-  } catch {
-    return { razorpayEnabled: false, demoMode: true, autoVerify: true };
+  } catch (err) {
+    console.error('Payment config fetch failed:', err);
+    return { razorpayEnabled: false };
   }
 }
 
 export async function createRazorpayOrderOnServer(
   orderId: string,
-  amount: number
+  items: Array<{ id: string; quantity: number }>,
+  couponCode?: string
 ): Promise<{
   success: boolean;
   razorpayOrderId?: string;
   amount?: number;
   keyId?: string;
-  demo?: boolean;
   error?: string;
 }> {
   try {
-    const data = await fetchJSON<{ success: boolean; razorpayOrderId?: string; amount?: number; keyId?: string; demo?: boolean; error?: string }>(`${API_BASE}/api/payments/razorpay/order`, {
+    const data = await fetchJSON<{ success: boolean; razorpayOrderId?: string; amount?: number; keyId?: string; error?: string }>(`${API_BASE}/api/payments/razorpay/order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, amount }),
+      body: JSON.stringify({ orderId, items, couponCode }),
     });
     if (!data.success) return { success: false, error: data.error };
     return {
@@ -65,7 +62,6 @@ export async function createRazorpayOrderOnServer(
       razorpayOrderId: data.razorpayOrderId,
       amount: data.amount,
       keyId: data.keyId,
-      demo: data.demo,
     };
   } catch (e: unknown) {
     return { success: false, error: e instanceof Error ? e.message : 'Network error' };
@@ -77,6 +73,9 @@ export async function verifyRazorpayOnServer(payload: {
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpaySignature: string;
+  items: Array<{ id: string; quantity: number }>;
+  shippingAddress: any;
+  couponCode?: string;
 }) {
   try {
     const data = await fetchJSON<{ success: boolean; order?: unknown; error?: string }>(`${API_BASE}/api/payments/razorpay/verify`, {
@@ -105,7 +104,6 @@ export async function openRazorpayCheckout(options: {
   customerName: string;
   customerEmail: string;
   customerPhone?: string;
-  demo?: boolean;
 }): Promise<RazorpayHandlerResponse | null> {
   const loaded = await loadRazorpayScript();
   if (!loaded) return null;
@@ -133,15 +131,6 @@ export async function openRazorpayCheckout(options: {
         ondismiss: () => reject(new Error('Payment cancelled')),
       },
     });
-
-    if (options.demo) {
-      resolve({
-        razorpay_order_id: options.razorpayOrderId,
-        razorpay_payment_id: `pay_demo_${Date.now()}`,
-        razorpay_signature: `demo_sig_${Date.now()}`,
-      });
-      return;
-    }
 
     instance.open();
   });

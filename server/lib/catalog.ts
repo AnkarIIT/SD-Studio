@@ -42,3 +42,15 @@ export async function upsertProductOverride(productId: string, input: ProductOve
 export async function getProductOverrides() {
   return prisma.productOverride.findMany({ orderBy: { productId: 'asc' } });
 }
+
+export async function getCouponDiscount(subtotal: number, couponCode: string): Promise<number> {
+  try {
+    const { getSiteConfig } = await import('./site-config');
+    const config = await getSiteConfig();
+    const coupon = config.coupons?.[couponCode];
+    if (!coupon) return 0;
+    return Math.round(subtotal * coupon.percent / 100 * 100) / 100;
+  } catch {
+    return 0;
+  }
+}

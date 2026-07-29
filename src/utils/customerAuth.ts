@@ -1,5 +1,5 @@
-const VERIFIED_EMAIL_KEY = 'lb_verified_email';
-const ORDER_ACCESS_TOKEN_KEY = 'lb_order_access_token';
+const VERIFIED_EMAIL_KEY = 'sd_verified_email';
+const ORDER_ACCESS_TOKEN_KEY = 'sd_order_access_token';
 
 export function getVerifiedEmail(): string {
   return sessionStorage.getItem(VERIFIED_EMAIL_KEY) ?? '';

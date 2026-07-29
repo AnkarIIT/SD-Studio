@@ -31,7 +31,7 @@ router.post(
         const payment = payload?.payload?.payment?.entity;
         const razorpayPaymentId = payment?.id as string | undefined;
         const razorpayOrderId = payment?.order_id as string | undefined;
-        const receipt = payment?.notes?.layerbound_order_id ?? payment?.notes?.receipt;
+        const receipt = payment?.notes?.sd_order_id ?? payment?.notes?.receipt;
 
         if (receipt && razorpayPaymentId) {
           const order = await getOrderByOrderId(String(receipt));
@@ -63,5 +63,31 @@ router.post(
     }
   }
 );
+
+router.post('/webhooks/cashfree', async (req: Request, res: Response) => {
+  try {
+    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const type = payload?.type;
+    const orderId = payload?.data?.order?.order_id;
+
+    if ((type === 'PAYMENT_SUCCESS_WEBHOOK' || type === 'payment.success') && orderId) {
+      const order = await getOrderByOrderId(orderId);
+      if (order && order.status !== 'paid' && order.status !== 'confirmed') {
+        await persistOrder({
+          ...order,
+          status: 'paid',
+          paymentMethod: 'card',
+          paymentId: payload?.data?.payment?.cf_payment_id || `cf_${Date.now()}`,
+        });
+        await addTimelineEvent(orderId, 'payment_received', 'Cashfree webhook');
+      }
+    }
+
+    res.json({ success: true, received: type });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Cashfree webhook error';
+    res.status(500).json({ success: false, error: message });
+  }
+});
 
 export default router;

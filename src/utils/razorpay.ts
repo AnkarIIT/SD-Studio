@@ -1,3 +1,5 @@
+import { fetchJSON } from './fetchJSON';
+
 const API_BASE = import.meta.env.VITE_NOTIFICATION_API_URL || '';
 
 export type PaymentConfig = {
@@ -28,9 +30,7 @@ export function loadRazorpayScript(): Promise<boolean> {
 
 export async function fetchPaymentConfig(): Promise<PaymentConfig> {
   try {
-    const res = await fetch(`${API_BASE}/api/payments/config`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error);
+    const data = await fetchJSON<{ razorpayEnabled?: boolean; keyId?: string; demoMode?: boolean; autoVerify?: boolean }>(`${API_BASE}/api/payments/config`);
     return {
       razorpayEnabled: Boolean(data.razorpayEnabled || data.keyId),
       keyId: data.keyId,
@@ -54,13 +54,12 @@ export async function createRazorpayOrderOnServer(
   error?: string;
 }> {
   try {
-    const res = await fetch(`${API_BASE}/api/payments/razorpay/order`, {
+    const data = await fetchJSON<{ success: boolean; razorpayOrderId?: string; amount?: number; keyId?: string; demo?: boolean; error?: string }>(`${API_BASE}/api/payments/razorpay/order`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orderId, amount }),
     });
-    const data = await res.json();
-    if (!res.ok) return { success: false, error: data.error };
+    if (!data.success) return { success: false, error: data.error };
     return {
       success: true,
       razorpayOrderId: data.razorpayOrderId,
@@ -80,13 +79,12 @@ export async function verifyRazorpayOnServer(payload: {
   razorpaySignature: string;
 }) {
   try {
-    const res = await fetch(`${API_BASE}/api/payments/razorpay/verify`, {
+    const data = await fetchJSON<{ success: boolean; order?: unknown; error?: string }>(`${API_BASE}/api/payments/razorpay/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    const data = await res.json();
-    if (!res.ok) return { success: false, error: data.error };
+    if (!data.success) return { success: false, error: data.error };
     return { success: true, order: data.order };
   } catch (e: unknown) {
     return { success: false, error: e instanceof Error ? e.message : 'Verification failed' };

@@ -98,7 +98,7 @@ export const createRazorpayOrder = async (amount: number, orderId: string) => {
     status: 'created',
     attempts: 0,
     notes: {
-      '3dbysd_order_id': orderId,
+      'sd_order_id': orderId,
     },
     created_at: Math.floor(Date.now() / 1000),
   };

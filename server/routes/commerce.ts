@@ -145,7 +145,7 @@ router.post('/custom-requests', (req, res, next) => {
     return res.status(400).json({ success: false, error: 'name, email, and details are required' });
   }
 
-  const requestId = `LB-CUSTOM-${Date.now().toString(36).toUpperCase()}`;
+  const requestId = `SD-CUSTOM-${Date.now().toString(36).toUpperCase()}`;
   const file = req.file;
 
   try {

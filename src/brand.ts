@@ -8,4 +8,4 @@ export const BRAND_SUPPORT_EMAIL = 'support@3dbysd.in';
 export const BRAND_NOTIFICATIONS_EMAIL = 'notifications@3dbysd.in';
 export const BRAND_UPI_ID = '3dbysd@upi';
 export const BRAND_THEME_STORAGE_KEY = '3dbsd-theme-preference';
-export const BRAND_THEME_STORAGE_KEY_LEGACY = 'lb-theme-preference';
+export const BRAND_THEME_STORAGE_KEY_LEGACY = 'sd-theme-preference';

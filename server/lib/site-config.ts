@@ -62,8 +62,8 @@ export const DEFAULT_SITE_CONFIG: SiteConfigData = {
     },
   ],
   coupons: {
-    LB_FIRST_10: { label: 'First order discount', percent: 10 },
-    LAB15: { label: 'Lab community discount', percent: 15 },
+    SD_FIRST_10: { label: 'First order discount', percent: 10 },
+    SD_LAB15: { label: 'Lab community discount', percent: 15 },
     NEWSLETTER15: { label: 'Newsletter signup discount', percent: 15 },
   },
 };

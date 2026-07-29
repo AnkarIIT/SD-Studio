@@ -51,7 +51,7 @@ export async function createRazorpayOrder(
       amount: amountPaise,
       currency: 'INR',
       receipt,
-      notes: { layerbound_order_id: receipt },
+      notes: { sd_order_id: receipt },
     }),
   });
 

@@ -6,7 +6,7 @@ const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 function getSecret(): string {
   return (
     process.env.ORDER_ACCESS_SECRET?.trim() ||
-    'layerbound-order-access-dev'
+    'sd-order-access-dev'
   );
 }
 

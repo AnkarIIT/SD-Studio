@@ -9,6 +9,7 @@ import Cart from '../components/Cart';
 import Checkout from '../components/Checkout';
 import Wishlist from '../components/Wishlist';
 import OrderHistory from '../components/OrderHistory';
+import AuthModal from '../components/AuthModal';
 
 import HowItWorksReplica from '../components/HowItWorksReplica';
 import UploadEstimatorReplica from '../components/UploadEstimatorReplica';
@@ -37,6 +38,7 @@ export default function StorefrontPage() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isWishlistOpen, setIsWishlistOpen] = useState(false);
   const [isOrdersOpen, setIsOrdersOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   const maintenanceMode = useSiteSettings((s) => s.maintenanceMode);
@@ -172,7 +174,7 @@ export default function StorefrontPage() {
   return (
     <ErrorBoundary>
       <div className="min-h-screen flex flex-col font-sans">
-        <HeaderReplica onOpenCart={() => setIsCartOpen(true)} onOpenOrders={() => setIsOrdersOpen(true)} />
+        <HeaderReplica onOpenCart={() => setIsCartOpen(true)} onOpenOrders={() => setIsOrdersOpen(true)} onOpenAuth={() => setIsAuthOpen(true)} />
 
         <main className="flex-grow shop-page-bg">
           <HeroReplica />
@@ -228,6 +230,7 @@ export default function StorefrontPage() {
           )}
         </AnimatePresence>
 
+        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onSuccess={() => { if (useCartStore.getState().items.length > 0) setIsCheckoutOpen(true); }} />
         <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemove={removeItem} onCheckout={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }} />
         <Wishlist isOpen={isWishlistOpen} onClose={() => setIsWishlistOpen(false)} onAddToCart={handleAddToCart} />
         <Checkout isOpen={isCheckoutOpen} items={cartItems} onClose={() => setIsCheckoutOpen(false)} onComplete={handleOrderComplete} />

@@ -5,8 +5,8 @@ export const STANDARD_SHIPPING = 249;
 export const GST_RATE = 0; // Tax removed
 
 export const COUPONS: Record<string, { label: string; percent: number }> = {
-  LB_FIRST_10: { label: 'First order discount', percent: 10 },
-  LAB15: { label: 'Lab community discount', percent: 15 },
+  SD_FIRST_10: { label: 'First order discount', percent: 10 },
+  SD_LAB15: { label: 'Lab community discount', percent: 15 },
   NEWSLETTER15: { label: 'Newsletter signup discount', percent: 15 },
 };
 

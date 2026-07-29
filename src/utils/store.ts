@@ -23,8 +23,10 @@ interface WishlistStore {
 
 interface UserStore {
   user: User | null;
+  token: string | null;
   isAuthenticated: boolean;
   setUser: (user: User | null) => void;
+  setAuth: (user: User, token: string) => void;
   logout: () => void;
 }
 
@@ -130,24 +132,32 @@ export const useWishlistStore = create<WishlistStore>()(
 );
 
 /**
- * User Store
+ * User Store (persisted — token survives refresh)
  */
-export const useUserStore = create<UserStore>()((set) => ({
-  user: null,
-  isAuthenticated: false,
-  setUser: (user) => {
-    set({ user, isAuthenticated: !!user });
-    if (user) {
-      userStorage.setUser(user);
-      authStorage.setToken('dummy_token');
-    }
-  },
-  logout: () => {
-    set({ user: null, isAuthenticated: false });
-    userStorage.clearUser();
-    authStorage.clearToken();
-  },
-}));
+export const useUserStore = create<UserStore>()(
+  persist(
+    (set) => ({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      setUser: (user) => {
+        set({ user, isAuthenticated: !!user });
+        if (user) userStorage.setUser(user);
+      },
+      setAuth: (user, token) => {
+        set({ user, token, isAuthenticated: true });
+        userStorage.setUser(user);
+        authStorage.setToken(token);
+      },
+      logout: () => {
+        set({ user: null, token: null, isAuthenticated: false });
+        userStorage.clearUser();
+        authStorage.clearToken();
+      },
+    }),
+    { name: 'sd-user-auth' }
+  )
+);
 
 /**
  * Order Store

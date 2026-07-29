@@ -1,5 +1,6 @@
 import prisma from './database';
-import { getOrderByOrderId, persistOrder, type CreateOrderPayload } from './orders';
+import { OrderStatus } from '@prisma/client';
+import { getOrderByOrderId } from './orders';
 import { addTimelineEvent, type TimelineStage } from './timeline';
 
 export async function enqueuePaymentVerification(input: {
@@ -34,17 +35,16 @@ export async function approvePaymentVerification(queueId: string) {
   if (!entry) throw new Error('Verification entry not found');
   if (entry.status !== 'pending') throw new Error(`Already ${entry.status}`);
 
-  const order = await getOrderByOrderId(entry.orderId);
-  if (!order) throw new Error('Order not found');
+  const updated = await prisma.order.updateMany({
+    where: { orderId: entry.orderId },
+    data: { status: 'paid', paymentReference: entry.reference ?? undefined },
+  });
+  if (!updated.count) throw new Error('Order not found');
 
-  const payload: CreateOrderPayload = {
-    ...order,
-    status: 'paid',
-    paymentMethod: order.paymentMethod,
-    paymentId: entry.reference ?? order.paymentId,
-  };
-
-  await persistOrder(payload);
+  await prisma.payment.updateMany({
+    where: { orderId: entry.orderId },
+    data: { paymentStatus: 'success', paymentReference: entry.reference ?? undefined },
+  });
 
   await prisma.paymentVerificationQueue.update({
     where: { id: queueId },
@@ -54,7 +54,7 @@ export async function approvePaymentVerification(queueId: string) {
   await addTimelineEvent(entry.orderId, 'payment_received', 'Payment verified');
   await addTimelineEvent(entry.orderId, 'production_started', 'Your print is queued');
 
-  return { entry, order: payload };
+  return { entry, order: { id: entry.orderId, status: 'paid' } };
 }
 
 export async function listVerificationQueue(status?: string) {
@@ -72,18 +72,18 @@ export function shouldAutoVerifyPayments(): boolean {
 }
 
 export async function advanceOrderStage(orderId: string, stage: TimelineStage, message?: string) {
-  const order = await getOrderByOrderId(orderId);
-  if (!order) throw new Error('Order not found');
-
   await addTimelineEvent(orderId, stage, message);
 
-  const statusMap: Partial<Record<TimelineStage, typeof order.status>> = {
-    shipped: 'shipped',
-    delivered: 'delivered',
+  const statusMap: Partial<Record<TimelineStage, OrderStatus>> = {
+    shipped: OrderStatus.shipped,
+    delivered: OrderStatus.delivered,
   };
   const nextStatus = statusMap[stage];
   if (nextStatus) {
-    await persistOrder({ ...order, status: nextStatus });
+    await prisma.order.updateMany({
+      where: { orderId },
+      data: { status: nextStatus },
+    });
   }
 
   if (stage === 'shipped') {

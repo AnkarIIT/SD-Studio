@@ -11,12 +11,12 @@ export type ProductOverrideInput = {
   badge?: string;
 };
 
-function applyOverride(product: Product, o?: { price: number | null; originalPrice: number | null; stock: number | null; inStock: boolean | null; hidden: boolean; badge: string | null }) {
+function applyOverride(product: Product, o?: { price: any; originalPrice: any; stock: number | null; inStock: boolean | null; hidden: boolean; badge: string | null }) {
   if (!o) return product;
   return {
     ...product,
-    ...(o.price != null && { price: o.price }),
-    ...(o.originalPrice != null && { originalPrice: o.originalPrice }),
+    ...(o.price != null && { price: Number(o.price) }),
+    ...(o.originalPrice != null && { originalPrice: Number(o.originalPrice) }),
     ...(o.stock != null && { stock: o.stock }),
     ...(o.inStock != null && { inStock: o.inStock }),
     ...(o.badge != null && { badge: o.badge }),

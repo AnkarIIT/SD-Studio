@@ -9,7 +9,7 @@ export async function getStoreAnalytics() {
   const paidStatuses = new Set(['paid', 'confirmed', 'shipped', 'delivered']);
   const paid = orders.filter((o) => paidStatuses.has(o.status));
 
-  const revenue = paid.reduce((s, o) => s + o.total, 0);
+  const revenue = paid.reduce((s, o) => s + Number(o.total), 0);
   const avgOrder = paid.length ? revenue / paid.length : 0;
 
   const byStatus: Record<string, number> = {};
@@ -26,7 +26,7 @@ export async function getStoreAnalytics() {
     last7Days.push({
       date: key,
       orders: dayOrders.length,
-      revenue: dayOrders.reduce((s, o) => s + o.total, 0),
+      revenue: dayOrders.reduce((s, o) => s + Number(o.total), 0),
     });
   }
 

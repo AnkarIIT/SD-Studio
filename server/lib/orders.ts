@@ -41,26 +41,26 @@ function recalculateOrderTotals(payload: CreateOrderPayload): {
       errors.push(`Invalid product: ${item.name} (${item.id})`);
       continue;
     }
-    const catalogPrice = catalogProduct.originalPrice ?? catalogProduct.price;
-    if (Math.abs(item.price - catalogPrice) > 1) {
+    const catalogPrice = catalogProduct.price;
+    if (Math.abs(item.price - catalogPrice) > 0.01) {
       errors.push(`Price mismatch for ${item.name}: client=${item.price}, catalog=${catalogPrice}`);
     }
-    calculatedSubtotal += catalogPrice * item.quantity;
+    calculatedSubtotal += Math.round(catalogPrice * item.quantity * 100) / 100;
   }
 
   if (errors.length > 0) {
     return { subtotal: calculatedSubtotal, total: 0, valid: false, errors };
   }
 
-  const validatedSubtotal = payload.subtotal;
-  const expectedSubtotal = payload.items.reduce((s, i) => s + i.price * i.quantity, 0);
-  if (Math.abs(validatedSubtotal - expectedSubtotal) > 1) {
+  const validatedSubtotal = Math.round(payload.subtotal * 100) / 100;
+  const expectedSubtotal = Math.round(payload.items.reduce((s, i) => s + i.price * i.quantity, 0) * 100) / 100;
+  if (Math.abs(validatedSubtotal - expectedSubtotal) > 0.01) {
     errors.push(`Subtotal mismatch: declared=${validatedSubtotal}, calculated=${expectedSubtotal}`);
   }
 
-  const validatedTotal = payload.total;
-  const expectedTotal = validatedSubtotal + (payload.tax || 0) + (payload.shipping || 0) - (payload.discount || 0);
-  if (Math.abs(validatedTotal - expectedTotal) > 1) {
+  const validatedTotal = Math.round(payload.total * 100) / 100;
+  const expectedTotal = Math.round((validatedSubtotal + (payload.tax || 0) + (payload.shipping || 0) - (payload.discount || 0)) * 100) / 100;
+  if (Math.abs(validatedTotal - expectedTotal) > 0.01) {
     errors.push(`Total mismatch: declared=${validatedTotal}, calculated=${expectedTotal}`);
   }
 
@@ -72,14 +72,18 @@ function recalculateOrderTotals(payload: CreateOrderPayload): {
   };
 }
 
+function toNum(v: any): number {
+  return typeof v === 'number' ? v : Number(v);
+}
+
 function mapRowToOrder(row: {
   orderId: string;
   items: string;
-  subtotal: number;
-  tax: number;
-  shipping: number;
-  discount: number;
-  total: number;
+  subtotal: any;
+  tax: any;
+  shipping: any;
+  discount: any;
+  total: any;
   status: string;
   paymentMethod: string | null;
   paymentReference: string | null;
@@ -91,11 +95,11 @@ function mapRowToOrder(row: {
   return {
     id: row.orderId,
     items: JSON.parse(row.items) as CartItem[],
-    subtotal: row.subtotal,
-    tax: row.tax,
-    shipping: row.shipping,
-    discount: row.discount,
-    total: row.total,
+    subtotal: toNum(row.subtotal),
+    tax: toNum(row.tax),
+    shipping: toNum(row.shipping),
+    discount: toNum(row.discount),
+    total: toNum(row.total),
     status: row.status as Order['status'],
     paymentMethod: (row.paymentMethod ?? 'upi') as Order['paymentMethod'],
     paymentId: row.paymentReference ?? undefined,
@@ -110,12 +114,7 @@ export async function persistOrder(payload: CreateOrderPayload): Promise<Order> 
   // Server-side price validation
   const validation = recalculateOrderTotals(payload);
   if (!validation.valid) {
-    console.error('Order price validation failed:', validation.errors);
-    // In production, reject invalid orders. In dev, warn but allow.
-    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
-      throw new Error(`Order validation failed: ${validation.errors.join('; ')}`);
-    }
-    console.warn('⚠️  Order price validation warnings (dev mode, allowing):', validation.errors);
+    throw new Error(`Order validation failed: ${validation.errors.join('; ')}`);
   }
 
   const email = payload.shippingAddress.email.trim().toLowerCase();

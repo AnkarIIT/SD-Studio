@@ -30,13 +30,10 @@ export async function addTimelineEvent(
   stage: TimelineStage,
   message?: string
 ) {
-  const existing = await prisma.orderTimelineEvent.findFirst({
-    where: { orderId, stage },
-  });
-  if (existing) return existing;
-
-  const event = await prisma.orderTimelineEvent.create({
-    data: { orderId, stage, message },
+  const event = await prisma.orderTimelineEvent.upsert({
+    where: { orderId_stage: { orderId, stage } },
+    create: { orderId, stage, message },
+    update: {},
   });
 
   await auditRepo.log('order', orderId, 'timeline', { stage, message });

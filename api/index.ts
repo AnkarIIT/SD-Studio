@@ -19,8 +19,8 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json({ limit: '1mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
 // Security headers
 app.use((_req: Request, res: Response, next: NextFunction) => {
@@ -154,7 +154,7 @@ app.get('/api/payments/config', async (_req: Request, res: Response) => {
 });
 
 // --- PAYMENT VERIFICATION QUEUE ---
-app.post('/api/payments/verify-queue', async (req: Request, res: Response) => {
+app.post('/api/payments/verify-queue', paymentLimiter, async (req: Request, res: Response) => {
   try {
     const { enqueuePaymentVerification } = await import('../server/lib/payment-queue');
     const { orderId, method, reference, amount } = req.body;
@@ -181,8 +181,17 @@ app.get('/api/orders/:orderId/timeline', async (req: Request, res: Response) => 
   try {
     const { getOrderTimeline } = await import('../server/lib/timeline');
     const { getOrderByOrderId } = await import('../server/lib/orders');
+    const { getOrderAccessEmailFromRequest } = await import('../server/lib/order-access');
+
+    const tokenEmail = getOrderAccessEmailFromRequest(req);
+    if (!tokenEmail) {
+      return res.status(401).json({ success: false, error: 'Order access token required' });
+    }
+
     const order = await getOrderByOrderId(req.params.orderId);
-    if (!order) return res.status(404).json({ success: false, error: 'Order not found' });
+    if (!order || order.shippingAddress.email.trim().toLowerCase() !== tokenEmail) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
 
     const timeline = await getOrderTimeline(req.params.orderId);
     res.json({ success: true, timeline });
@@ -194,6 +203,10 @@ app.get('/api/orders/:orderId/timeline', async (req: Request, res: Response) => 
 // --- CUSTOMER AUTH ---
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+const DUMMY_BCRYPT_HASH = '$2b$12$LJ3m4ys3Lk0TSwHlgntFou0N4F1k7tCBmGspMOFNYpSZqJk/Mn/pe';
 
 function getJwtSecret(): string {
   const secret = process.env.ORDER_ACCESS_SECRET?.trim();
@@ -225,8 +238,11 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
   try {
     const prisma = (await import('../server/lib/database')).default;
     const { name, email, password } = req.body;
-    if (!name || !email || !password || password.length < 8) {
-      return res.status(400).json({ success: false, error: 'Name, valid email, and password (min 8 chars) required' });
+    if (!name || !email || !PASSWORD_REGEX.test(password)) {
+      return res.status(400).json({ success: false, error: 'Name, valid email, and password (min 8 chars, uppercase, lowercase, digit) required' });
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ success: false, error: 'Invalid email format' });
     }
     const normalizedEmail = email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -251,10 +267,9 @@ app.post('/api/auth/login', authLimiter, async (req: Request, res: Response) => 
 
     const normalizedEmail = email.trim().toLowerCase();
     const user = await prisma.user.findUnique({ where: { email: normalizedEmail } });
-    if (!user) return res.status(401).json({ success: false, error: 'Invalid email or password' });
-
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ success: false, error: 'Invalid email or password' });
+    const hash = user?.password ?? DUMMY_BCRYPT_HASH;
+    const valid = await bcrypt.compare(password, hash);
+    if (!user || !valid) return res.status(401).json({ success: false, error: 'Invalid email or password' });
 
     const token = jwt.sign({ email: user.email, name: user.name }, JWT_SECRET, { expiresIn: '7d' });
     res.json({ success: true, token, user: { name: user.name, email: user.email } });
@@ -263,7 +278,7 @@ app.post('/api/auth/login', authLimiter, async (req: Request, res: Response) => 
   }
 });
 
-app.get('/api/auth/me', authMiddleware, async (req: Request, res: Response) => {
+app.get('/api/auth/me', authLimiter, authMiddleware, async (req: Request, res: Response) => {
   const user = (req as any).user;
   res.json({ success: true, user: { name: user.name, email: user.email } });
 });

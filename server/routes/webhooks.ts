@@ -8,7 +8,7 @@ const router = Router();
 
 function verifyWebhookSignature(body: string, signature: string): boolean {
   const secret = process.env.RAZORPAY_WEBHOOK_SECRET?.trim();
-  if (!secret) return process.env.NODE_ENV !== 'production';
+  if (!secret) return false;
   const expected = crypto.createHmac('sha256', secret).update(body).digest('hex');
   return expected === signature;
 }
@@ -65,7 +65,7 @@ router.post(
 );
 
 function verifyCashfreeWebhook(body: string, signature: string, timestamp: string): boolean {
-  const secretKey = process.env.CASHFREE_SECRET_KEY?.trim();
+  const secretKey = process.env.CASHFREE_WEBHOOK_SECRET?.trim() || process.env.CASHFREE_SECRET_KEY?.trim();
   if (!secretKey) return false;
   const payload = `${timestamp}.${body}`;
   const expected = crypto.createHmac('sha256', secretKey).update(payload).digest('base64');

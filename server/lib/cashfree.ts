@@ -89,13 +89,15 @@ export async function createCashfreeOrder(payload: any, origin?: string) {
     }
 
     const runtime = getRuntime(origin);
-    const response = await fetch(`${runtime.baseUrl}/orders`, {
+    const url = `${runtime.baseUrl}/orders`;
+    console.log('Cashfree request:', { url, mode: runtime.mode, keyPreview: APP_ID?.slice(0, 8) });
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-version': '2023-08-01',
-        'x-client-id': APP_ID,
-        'x-client-secret': SECRET_KEY,
+        'x-client-id': APP_ID!,
+        'x-client-secret': SECRET_KEY!,
       },
       body: JSON.stringify({
         order_id: payload.orderId,
@@ -118,8 +120,8 @@ export async function createCashfreeOrder(payload: any, origin?: string) {
     let data: any = {};
     try { data = JSON.parse(text); } catch { data = { message: text }; }
     if (!response.ok) {
-      console.error('Cashfree raw error response:', { status: response.status, body: text });
-      return { error: data.message || data.error || `Cashfree API Error (${response.status})` };
+      console.error('Cashfree error:', { status: response.status, body: text, url, keyPrefix: APP_ID?.slice(0, 8) });
+      return { error: `Cashfree: ${data.message || data.error || `HTTP ${response.status}`}` };
     }
     return { data, mode: runtime.mode };
   } catch (err: any) {

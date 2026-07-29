@@ -1,5 +1,5 @@
 import '../env';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, PaymentStatus, DeliveryStatus } from '@prisma/client';
 
 function createFallbackPrismaClient(): PrismaClient {
   return new Proxy({}, {
@@ -73,7 +73,7 @@ export const paymentRepo = {
   // Update payment status
   updateStatus: async (
     paymentId: string,
-    status: string,
+    status: PaymentStatus,
     reference?: string
   ) => {
     return prisma.payment.update({
@@ -81,7 +81,7 @@ export const paymentRepo = {
       data: {
         paymentStatus: status,
         ...(reference && { paymentReference: reference }),
-        ...(status === 'success' && { completedAt: new Date() }),
+        ...(status === PaymentStatus.success && { completedAt: new Date() }),
       },
     });
   },
@@ -103,7 +103,7 @@ export const paymentRepo = {
   },
 
   // Get payments by status
-  getByStatus: async (status: string) => {
+  getByStatus: async (status: PaymentStatus) => {
     return prisma.payment.findMany({
       where: { paymentStatus: status },
       orderBy: { createdAt: 'desc' },
@@ -149,14 +149,14 @@ export const deliveryRepo = {
   // Update delivery status
   updateStatus: async (
     deliveryId: string,
-    status: string,
+    status: DeliveryStatus,
     tracking?: string
   ) => {
-    const updates: any = { status };
+    const updates: Record<string, any> = { status };
 
     if (tracking) updates.trackingNumber = tracking;
-    if (status === 'shipped') updates.shippedAt = new Date();
-    if (status === 'delivered') updates.deliveredAt = new Date();
+    if (status === DeliveryStatus.shipped) updates.shippedAt = new Date();
+    if (status === DeliveryStatus.delivered) updates.deliveredAt = new Date();
 
     return prisma.delivery.update({
       where: { id: deliveryId },
@@ -183,7 +183,7 @@ export const deliveryRepo = {
   },
 
   // Get deliveries by status
-  getByStatus: async (status: string) => {
+  getByStatus: async (status: DeliveryStatus) => {
     return prisma.delivery.findMany({
       where: { status },
       orderBy: { createdAt: 'desc' },
@@ -212,9 +212,9 @@ export const cleanupRepo = {
           { expiresAt: { lte: new Date() } },
           {
             OR: [
-              { paymentStatus: 'success' },
-              { paymentStatus: 'failed' },
-              { paymentStatus: 'refunded' },
+              { paymentStatus: PaymentStatus.success },
+              { paymentStatus: PaymentStatus.failed },
+              { paymentStatus: PaymentStatus.refunded },
             ],
           },
         ],
@@ -229,7 +229,7 @@ export const cleanupRepo = {
       where: {
         AND: [
           { expiresAt: { lte: new Date() } },
-          { status: 'delivered' },
+          { status: DeliveryStatus.delivered },
         ],
       },
     });
@@ -242,7 +242,7 @@ export const cleanupRepo = {
       where: {
         AND: [
           { expiresAt: { lte: new Date() } },
-          { paymentStatus: 'cancelled' },
+          { paymentStatus: PaymentStatus.cancelled },
         ],
       },
     });

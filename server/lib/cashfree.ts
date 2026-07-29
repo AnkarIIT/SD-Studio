@@ -1,12 +1,17 @@
 /**
  * Cashfree integration.
  * Uses environment variables so deployments can switch between sandbox and production safely.
+ *
+ * Mode selection rules:
+ *   - Localhost requests → sandbox by default (prevents accidental real charges during dev)
+ *   - Set CASHFREE_ALLOW_LOCAL_PRODUCTION=true to use production mode on localhost
+ *   - Remote requests → uses CASHFREE_MODE env var (production or sandbox)
  */
 
 type CashfreeMode = 'sandbox' | 'production';
 
-const CASHFREE_MODE = (process.env.CASHFREE_MODE || process.env.NODE_ENV || 'development').toLowerCase();
-const VERCEL_ENV = (process.env.VERCEL_ENV || '').toLowerCase();
+const CASHFREE_MODE = (process.env.CASHFREE_MODE || 'sandbox').toLowerCase();
+const ALLOW_LOCAL_PRODUCTION = process.env.CASHFREE_ALLOW_LOCAL_PRODUCTION === 'true';
 const PRODUCTION_BASE_URL = 'https://api.cashfree.com/pg';
 const SANDBOX_BASE_URL = 'https://sandbox.cashfree.com/pg';
 
@@ -34,27 +39,29 @@ function isLocalHostname(hostname: string) {
 }
 
 function getRuntime(origin?: string): { mode: CashfreeMode; baseUrl: string } {
-  const requestedProduction = CASHFREE_MODE === 'production' && VERCEL_ENV === 'production';
-  const localRequest = isLocalHostname(getHostname(origin));
-  const mode: CashfreeMode = requestedProduction && !localRequest ? 'production' : 'sandbox';
+  const hostname = getHostname(origin);
+  const localRequest = isLocalHostname(hostname);
+  const wantProduction = CASHFREE_MODE === 'production';
 
-  return {
-    mode,
-    baseUrl: mode === 'production' ? PRODUCTION_BASE_URL : SANDBOX_BASE_URL,
-  };
+  if (localRequest && wantProduction && !ALLOW_LOCAL_PRODUCTION) {
+    return { mode: 'sandbox', baseUrl: SANDBOX_BASE_URL };
+  }
+
+  const mode: CashfreeMode = wantProduction ? 'production' : 'sandbox';
+  return { mode, baseUrl: mode === 'production' ? PRODUCTION_BASE_URL : SANDBOX_BASE_URL };
 }
 
-function getReturnUrl(origin?: string) {
+function getSafeBaseUrl(origin?: string): string {
   const configuredFrontendUrl = process.env.FRONTEND_URL?.trim();
   const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
   const originIsLocal = isLocalHostname(getHostname(origin));
-  const isProductionDeployment = VERCEL_ENV === 'production';
-  const baseUrl = originIsLocal
-    ? origin
-    : isProductionDeployment
-      ? configuredFrontendUrl || origin || vercelUrl || 'http://localhost:3000'
-      : origin || vercelUrl || configuredFrontendUrl || 'http://localhost:3000';
-  return `${baseUrl.replace(/\/$/, '')}/order-success?order_id={order_id}`;
+  return originIsLocal
+    ? configuredFrontendUrl || origin || 'http://localhost:3000'
+    : configuredFrontendUrl || origin || vercelUrl || 'http://localhost:3000';
+}
+
+function getReturnUrl(origin?: string) {
+  return `${getSafeBaseUrl(origin).replace(/\/$/, '')}/order-success?order_id={order_id}`;
 }
 
 export async function createCashfreeOrder(payload: any, origin?: string) {
@@ -77,19 +84,25 @@ export async function createCashfreeOrder(payload: any, origin?: string) {
         order_amount: payload.amount,
         order_currency: 'INR',
         customer_details: {
-          customer_id: payload.email.replace(/[^a-zA-Z0-9]/g, '_'),
+          customer_id: (payload.email || 'guest').replace(/[^a-zA-Z0-9]/g, '_'),
           customer_name: payload.name,
           customer_email: payload.email,
-          customer_phone: payload.phone.replace(/[^0-9]/g, '').slice(-10),
+          customer_phone: (payload.phone || '').replace(/[^0-9]/g, '').slice(-10) || '9999999999',
         },
         order_meta: {
           return_url: getReturnUrl(origin),
+          notify_url: `${getSafeBaseUrl(origin).replace(/\/$/, '')}/api/webhooks/cashfree`,
         },
       }),
     });
 
-    const data = await response.json() as any;
-    if (!response.ok) return { error: data.message || 'Cashfree API Error' };
+    const text = await response.text();
+    let data: any = {};
+    try { data = JSON.parse(text); } catch { data = { message: text }; }
+    if (!response.ok) {
+      console.error('Cashfree raw error response:', { status: response.status, body: text });
+      return { error: data.message || data.error || `Cashfree API Error (${response.status})` };
+    }
     return { data, mode: runtime.mode };
   } catch (err: any) {
     return { error: err?.message || 'Connection to Cashfree failed' };

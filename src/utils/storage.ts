@@ -1,11 +1,11 @@
 import { CartItem, User, WishlistItem } from '../types';
 
 const STORAGE_KEYS = {
-  CART: 'lb_cart',
-  WISHLIST: 'lb_wishlist',
-  USER: 'lb_user',
-  AUTH_TOKEN: 'lb_auth_token',
-  RECENT_PRODUCTS: 'lb_recent_products',
+  CART: 'sd_cart',
+  WISHLIST: 'sd_wishlist',
+  USER: 'sd_user',
+  AUTH_TOKEN: 'sd_auth_token',
+  RECENT_PRODUCTS: 'sd_recent_products',
 };
 
 /**

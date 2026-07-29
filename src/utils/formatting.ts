@@ -64,5 +64,5 @@ export const truncateText = (text: string, length: number): string => {
  * Format order ID
  */
 export const formatOrderId = (id: string): string => {
-  return `ORD-${id.substring(0, 8).toUpperCase()}`;
+  return `SD-${id.substring(0, 8).toUpperCase()}`;
 };

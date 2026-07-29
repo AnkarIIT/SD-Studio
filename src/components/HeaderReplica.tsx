@@ -1,18 +1,21 @@
-import { useState } from 'react';
-import { ShoppingCart, Search, User, Home, ChevronDown, Package, Menu, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { ShoppingCart, Search, User, Home, ChevronDown, Package, Menu, X, LogOut } from 'lucide-react';
 import { motion, AnimatePresence, animate } from 'motion/react';
-import { useCartStore } from '../utils/store';
+import { useCartStore, useUserStore } from '../utils/store';
 import ThemeToggle from './ThemeToggle';
 
 interface HeaderReplicaProps {
   onOpenCart: () => void;
   onOpenOrders?: () => void;
+  onOpenAuth?: () => void;
   onOpenWishlist?: () => void;
 }
 
-export default function HeaderReplica({ onOpenCart, onOpenOrders }: HeaderReplicaProps) {
+export default function HeaderReplica({ onOpenCart, onOpenOrders, onOpenAuth }: HeaderReplicaProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const cartCount = useCartStore((state) => state.getItemCount());
+  const { isAuthenticated, user, logout } = useUserStore();
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
@@ -111,9 +114,20 @@ export default function HeaderReplica({ onOpenCart, onOpenOrders }: HeaderReplic
             <Search className="w-5 h-5 text-black" />
           </motion.button>
           
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={onOpenOrders} className="p-1.5 hover:bg-black/5 rounded-full transition-colors">
-            <User className="w-5 h-5 text-black" />
-          </motion.button>
+          <div className="relative">
+            <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => { if (isAuthenticated) setShowUserMenu(!showUserMenu); else onOpenAuth?.(); }} className="p-1.5 hover:bg-black/5 rounded-full transition-colors">
+              <User className="w-5 h-5 text-black" />
+            </motion.button>
+            <AnimatePresence>
+              {showUserMenu && isAuthenticated && (
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-zinc-900 border-2 border-black dark:border-zinc-700 rounded-xl shadow-xl p-2 z-50">
+                  <p className="px-3 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-300 truncate">{user?.name || user?.email}</p>
+                  <button type="button" onClick={() => { setShowUserMenu(false); onOpenOrders?.(); }} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2"><Package className="w-3.5 h-3.5" />Orders</button>
+                  <button type="button" onClick={() => { logout(); setShowUserMenu(false); }} className="w-full text-left px-3 py-2 text-xs font-bold hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors flex items-center gap-2 text-red-500"><LogOut className="w-3.5 h-3.5" />Sign out</button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
           <ThemeToggle />
 

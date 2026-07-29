@@ -1,7 +1,8 @@
 import { Product } from './types';
 
-const IMG = (id: string, w = 800) =>
-  `https://images.unsplash.com/${id}?w=${w}&q=80&fit=crop`;
+// Reliable product images via placeholder service
+const IMG = (seed: string, w = 800) =>
+  `https://picsum.photos/seed/${seed}/${w}/${w}`;
 
 export const PRODUCTS: Product[] = [
   {

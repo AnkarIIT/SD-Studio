@@ -1,18 +1,16 @@
-import { type FormEvent, useMemo, useState, useEffect } from 'react';
+import { type FormEvent, useMemo, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, X, ShoppingBag, MapPin, CreditCard, CheckCircle2, Loader2 } from 'lucide-react';
+import { ArrowRight, X, ShoppingBag, MapPin, CreditCard, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Address, CartItem, Order } from '../types';
 import { getOrderTotals, isValidCoupon } from '../utils/commerce';
 import { addressSchema, validateForm } from '../utils/validation';
-import { useCartStore, useOrderStore } from '../utils/store';
+import { useCartStore, useOrderStore, useUserStore } from '../utils/store';
 import { useSiteSettings } from '../utils/siteSettings';
 import CheckoutSummary from './CheckoutSummary';
 import { BRAND_NAME } from '../brand';
 
-declare const Cashfree: any;
-
-const STORAGE_KEY = 'lb_checkout_address';
+const STORAGE_KEY = 'sd_checkout_address';
 
 async function readApiResponse(res: Response) {
   const contentType = res.headers.get('content-type') || '';
@@ -33,6 +31,25 @@ async function readApiResponse(res: Response) {
   throw new Error(`Payment server returned ${res.status || 'an invalid response'}. Check Vercel function logs.`);
 }
 
+function loadCashfreeSdk(mode: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if ((window as any).Cashfree) {
+      return resolve((window as any).Cashfree);
+    }
+    const script = document.createElement('script');
+    script.src = mode === 'production'
+      ? 'https://sdk.cashfree.com/js/v3/cashfree.js'
+      : 'https://sandbox.cashfree.com/js/v3/cashfree.js';
+    script.async = true;
+    script.onload = () => {
+      if ((window as any).Cashfree) resolve((window as any).Cashfree);
+      else reject(new Error('Cashfree SDK loaded but global not found'));
+    };
+    script.onerror = () => reject(new Error('Failed to load Cashfree SDK'));
+    document.body.appendChild(script);
+  });
+}
+
 export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpen: boolean; items: CartItem[]; onClose: () => void; onComplete: (o: Order) => void }) {
   // Initialize with empty address
   const [address, setAddress] = useState<Address>({ fullName: '', email: '', phone: '', street: '', city: '', state: '', pincode: '', country: 'India' });
@@ -40,10 +57,13 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
   const [appliedCoupon, setAppliedCoupon] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [sdkError, setSdkError] = useState('');
 
   const { addOrder } = useOrderStore();
   const { clearCart } = useCartStore();
+  const { isAuthenticated, token } = useUserStore();
   const siteSettings = useSiteSettings();
+  const cashfreeRef = useRef<any>(null);
 
   // Load saved address on mount
   useEffect(() => {
@@ -71,29 +91,41 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
     const val = validateForm(addressSchema, address);
     if (!val.success) { setErrors(val.errors); return; }
 
-    setIsProcessing(true);
+    if (!isAuthenticated) {
+      toast.error('Please sign in to place an order');
+      setIsProcessing(false);
+      return;
+    }
+
+    setSdkError('');
     const orderId = `SD-ORD-${Date.now().toString(36).toUpperCase()}`;
+    const authHeaders: Record<string, string> = token ? { 'Authorization': `Bearer ${token}` } : {};
 
     try {
-      const res = await fetch('/api/payments/cashfree/order', {
+      // Try Cashfree first
+      const cfRes = await fetch('/api/payments/cashfree/order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeaders },
         credentials: 'same-origin',
         body: JSON.stringify({ orderId, amount: totals.total, customerName: address.fullName, customerEmail: address.email, customerPhone: address.phone })
       });
 
-      const data = await readApiResponse(res);
+      const cfData = await readApiResponse(cfRes);
 
-      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to create order');
+      if (!cfRes.ok || !cfData.success) {
+        throw new Error(cfData.error || 'Payment gateway unavailable');
+      }
 
-      const cashfree = Cashfree({ mode: data.cashfreeMode ?? 'sandbox' });
-      cashfree.checkout({ paymentSessionId: data.paymentSessionId, redirectTarget: "_modal" })
+      const Cashfree = await loadCashfreeSdk(cfData.cashfreeMode ?? 'sandbox');
+      cashfreeRef.current = Cashfree({ mode: cfData.cashfreeMode ?? 'sandbox' });
+
+      cashfreeRef.current.checkout({ paymentSessionId: cfData.paymentSessionId, redirectTarget: "_modal" })
         .then(async (result: any) => {
           if (result.error) { toast.error(result.error.message); setIsProcessing(false); return; }
 
           const vRes = await fetch('/api/payments/cashfree/verify', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...authHeaders },
             credentials: 'same-origin',
             body: JSON.stringify({ orderId, orderPayload: { id: orderId, items, ...totals, shippingAddress: address, couponCode: appliedCoupon } })
           });
@@ -108,9 +140,15 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
             throw new Error(vData.error);
           }
           setIsProcessing(false);
+        })
+        .catch((err: any) => {
+          toast.error(err?.message || 'Payment verification failed');
+          setIsProcessing(false);
         });
     } catch (err: any) {
-      toast.error(err.message || 'Payment Failed');
+      const msg = err.message || 'Payment Failed';
+      setSdkError(msg);
+      toast.error(msg);
       setIsProcessing(false);
     }
   };
@@ -169,10 +207,16 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
                   <input value={couponCode} onChange={e => setCouponCode(e.target.value)} placeholder="Coupon" className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 outline-none focus:border-[#925FE2]" />
                   <button type="button" onClick={() => { (siteSettings as any).coupons?.[couponCode.toUpperCase()] ? (setAppliedCoupon(couponCode.toUpperCase()), toast.success('Applied!')) : toast.error('Invalid') }} className="px-4 border rounded-lg text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Apply</button>
                 </div>
-                <button type="submit" disabled={isProcessing} className="do-btn-primary w-full py-4 flex items-center justify-center gap-2">
+                {sdkError && (
+                  <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-400">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>{sdkError}</span>
+                  </div>
+                )}
+                <button type="submit" disabled={isProcessing} className="do-btn-primary w-full py-4 flex items-center justify-center gap-2 disabled:opacity-50">
                   {isProcessing ? <Loader2 className="animate-spin" /> : 'Pay Securely'} <ArrowRight className="w-4 h-4" />
                 </button>
-                <p className="text-[10px] text-center text-zinc-400">Production Ready · Secure Payment</p>
+                <p className="text-[10px] text-center text-zinc-400">Secured by Cashfree · Production Ready</p>
               </CheckoutSummary>
             </form>
           </motion.div>

@@ -30,8 +30,8 @@ const DEFAULT_SETTINGS: SiteSettings = {
   freeShippingThreshold: 5000,
   heroSlides: [...HERO_SLIDES],
   coupons: {
-    LB_FIRST_10: { label: 'First order discount', percent: 10 },
-    LAB15: { label: 'Lab community discount', percent: 15 },
+    SD_FIRST_10: { label: 'First order discount', percent: 10 },
+    SD_LAB15: { label: 'Lab community discount', percent: 15 },
     NEWSLETTER15: { label: 'Newsletter signup discount', percent: 15 },
   },
 };
@@ -48,7 +48,7 @@ export const useSiteSettings = create<SiteSettingsStore>()(
       update: (patch) => set((state) => ({ ...state, ...patch })),
       reset: () => set({ ...DEFAULT_SETTINGS }),
     }),
-    { name: 'lb-site-settings' }
+    { name: 'sd-site-settings' }
   )
 );
 

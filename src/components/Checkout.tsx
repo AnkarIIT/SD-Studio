@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, X, ShoppingBag, MapPin, CreditCard, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Address, CartItem, Order } from '../types';
-import { getOrderTotals, isValidCoupon } from '../utils/commerce';
+import { getOrderTotals } from '../utils/commerce';
 import { addressSchema, validateForm } from '../utils/validation';
 import { useCartStore, useOrderStore, useUserStore } from '../utils/store';
 import { useSiteSettings } from '../utils/siteSettings';
@@ -116,12 +116,18 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
         throw new Error(cfData.error || 'Payment gateway unavailable');
       }
 
-      const Cashfree = await loadCashfreeSdk(cfData.cashfreeMode ?? 'sandbox');
-      cashfreeRef.current = Cashfree({ mode: cfData.cashfreeMode ?? 'sandbox' });
+      const paymentFlow = async () => {
+        if (cfData.cashfreeMode === 'demo') {
+          return { orderId };
+        }
+        const Cashfree = await loadCashfreeSdk(cfData.cashfreeMode ?? 'sandbox');
+        cashfreeRef.current = Cashfree({ mode: cfData.cashfreeMode ?? 'sandbox' });
+        return cashfreeRef.current.checkout({ paymentSessionId: cfData.paymentSessionId, redirectTarget: "_modal" });
+      };
 
-      cashfreeRef.current.checkout({ paymentSessionId: cfData.paymentSessionId, redirectTarget: "_modal" })
+      paymentFlow()
         .then(async (result: any) => {
-          if (result.error) { toast.error(result.error.message); setIsProcessing(false); return; }
+          if (result?.error) { toast.error(result.error.message); setIsProcessing(false); return; }
 
           const vRes = await fetch('/api/payments/cashfree/verify', {
             method: 'POST',

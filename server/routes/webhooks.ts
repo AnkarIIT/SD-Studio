@@ -64,9 +64,25 @@ router.post(
   }
 );
 
+function verifyCashfreeWebhook(body: string, signature: string, timestamp: string): boolean {
+  const secretKey = process.env.CASHFREE_SECRET_KEY?.trim();
+  if (!secretKey) return false;
+  const payload = `${timestamp}.${body}`;
+  const expected = crypto.createHmac('sha256', secretKey).update(payload).digest('base64');
+  return expected === signature;
+}
+
 router.post('/webhooks/cashfree', async (req: Request, res: Response) => {
   try {
-    const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const signature = String(req.headers['x-webhook-signature'] ?? '');
+    const timestamp = String(req.headers['x-webhook-timestamp'] ?? '');
+    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+
+    if (!verifyCashfreeWebhook(rawBody, signature, timestamp)) {
+      return res.status(400).json({ success: false, error: 'Invalid webhook signature' });
+    }
+
+    const payload = JSON.parse(rawBody);
     const type = payload?.type;
     const orderId = payload?.data?.order?.order_id;
 

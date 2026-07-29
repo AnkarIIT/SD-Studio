@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 import HeaderReplica from '../components/HeaderReplica';
 import HeroReplica from '../components/HeroReplica';
@@ -168,7 +168,7 @@ export default function StorefrontPage() {
 
   const sectionVariants = {
     hidden: { opacity: 0, y: 30 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
+    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" as const } }
   };
 
   return (

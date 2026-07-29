@@ -132,8 +132,8 @@ export default function HeaderReplica({ onOpenCart, onOpenOrders, onOpenAuth }: 
           <ThemeToggle />
 
           <motion.button
-            whileHover={{ translateZ: 10, shadow: "4px 4px 0px rgba(0,0,0,1)" }}
-            whileTap={{ scale: 0.98, x: 2, y: 2, shadow: "none" }}
+            whileHover={{ translateZ: 10 }}
+            whileTap={{ scale: 0.98, x: 2, y: 2 }}
             onClick={onOpenCart}
             className="flex items-center justify-between border-2 border-black bg-[#E6DDF2] hover:bg-[#d5cbe3] text-black px-4 py-1.5 rounded font-retro text-[10px] md:text-xs font-bold transition-all shadow-[2px_2px_0px_rgba(0,0,0,1)]"
           >

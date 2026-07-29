@@ -2,14 +2,35 @@ import express from 'express';
 import type { Express, NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
+import rateLimit from 'express-rate-limit';
 import '../server/env'; // Load env first
 
 const app: Express = express();
 
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+  : ['http://localhost:3000', 'http://localhost:5001'];
+
 // Middleware
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || ALLOWED_ORIGINS.some(o => origin === o)) cb(null, true);
+    else cb(null, false);
+  },
+  credentials: true,
+}));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+// Security headers
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' https://checkout.razorpay.com https://sdk.cashfree.com https://sandbox.cashfree.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.razorpay.com https://api.cashfree.com https://sandbox.cashfree.com; img-src 'self' data: https:; font-src 'self' data:; frame-src https://checkout.razorpay.com https://sandbox.cashfree.com https://api.cashfree.com");
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  next();
+});
+
 app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
   if (err) {
     return res.status(err.status || 400).json({
@@ -20,8 +41,25 @@ app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
   return next();
 });
 
+// Rate limiters
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many attempts. Try again later.' },
+});
+
+const paymentLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, error: 'Too many payment requests. Try again later.' },
+});
+
 // --- CASHFREE ---
-app.post('/api/payments/cashfree/order', async (req: Request, res: Response) => {
+app.post('/api/payments/cashfree/order', paymentLimiter, async (req: Request, res: Response) => {
   try {
     const { createCashfreeOrder } = await import('../server/lib/cashfree');
     const { orderId, amount, customerName, customerEmail, customerPhone } = req.body;
@@ -44,7 +82,7 @@ app.post('/api/payments/cashfree/order', async (req: Request, res: Response) => 
   }
 });
 
-app.post('/api/payments/cashfree/verify', async (req: Request, res: Response) => {
+app.post('/api/payments/cashfree/verify', paymentLimiter, async (req: Request, res: Response) => {
   try {
     const { verifyCashfreePayment } = await import('../server/lib/cashfree');
     const { persistOrder } = await import('../server/lib/orders');
@@ -72,7 +110,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- RAZORPAY ---
-app.post('/api/payments/razorpay/order', async (req: Request, res: Response) => {
+app.post('/api/payments/razorpay/order', paymentLimiter, async (req: Request, res: Response) => {
   try {
     const { createRazorpayOrder, getRazorpayKeyId } = await import('../server/lib/razorpay');
     const { orderId, amount } = req.body;
@@ -83,7 +121,7 @@ app.post('/api/payments/razorpay/order', async (req: Request, res: Response) => 
   }
 });
 
-app.post('/api/payments/razorpay/verify', async (req: Request, res: Response) => {
+app.post('/api/payments/razorpay/verify', paymentLimiter, async (req: Request, res: Response) => {
   try {
     const { verifyRazorpaySignature } = await import('../server/lib/razorpay');
     const { persistOrder } = await import('../server/lib/orders');
@@ -118,19 +156,18 @@ app.get('/api/payments/config', async (_req: Request, res: Response) => {
 // --- PAYMENT VERIFICATION QUEUE ---
 app.post('/api/payments/verify-queue', async (req: Request, res: Response) => {
   try {
-    const { enqueuePaymentVerification, shouldAutoVerifyPayments } = await import('../server/lib/payment-queue');
-    const { persistOrder } = await import('../server/lib/orders');
+    const { enqueuePaymentVerification } = await import('../server/lib/payment-queue');
     const { orderId, method, reference, amount } = req.body;
 
     const entry = await enqueuePaymentVerification({ orderId, method, reference, amount });
 
-    if (shouldAutoVerifyPayments()) {
-      const order = await persistOrder({
-        id: orderId, items: [], subtotal: 0, tax: 0, shipping: 0, discount: 0, total: amount,
-        status: 'paid', paymentMethod: method, paymentId: reference,
-        shippingAddress: { fullName: '', email: '', phone: '', street: '', city: '', state: '', pincode: '', country: 'India' },
-      });
-      return res.json({ success: true, autoVerified: true, message: 'Payment auto-verified', order });
+    // In production, always queue for manual verification
+    // In dev, auto-verify for testing convenience
+    const isDev = !process.env.VERCEL && process.env.NODE_ENV !== 'production';
+    if (process.env.AUTO_VERIFY_PAYMENTS === 'true' || (isDev && process.env.AUTO_VERIFY_PAYMENTS !== 'false')) {
+      const { approvePaymentVerification } = await import('../server/lib/payment-queue');
+      const result = await approvePaymentVerification(entry.id);
+      return res.json({ success: true, autoVerified: true, message: 'Payment auto-verified', order: result.order });
     }
 
     res.json({ success: true, autoVerified: false, message: 'Queued for manual verification', entry });
@@ -158,7 +195,17 @@ app.get('/api/orders/:orderId/timeline', async (req: Request, res: Response) => 
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.ORDER_ACCESS_SECRET?.trim() || 'sd-jwt-dev-secret';
+function getJwtSecret(): string {
+  const secret = process.env.ORDER_ACCESS_SECRET?.trim();
+  if (secret) return secret;
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+    throw new Error('ORDER_ACCESS_SECRET environment variable is required in production');
+  }
+  console.warn('⚠️  ORDER_ACCESS_SECRET not set — using development fallback. Set it in production.');
+  return 'sd-jwt-dev-secret';
+}
+
+const JWT_SECRET = getJwtSecret();
 
 function authMiddleware(req: Request, res: Response, next: NextFunction) {
   const auth = req.headers.authorization;
@@ -174,18 +221,18 @@ function authMiddleware(req: Request, res: Response, next: NextFunction) {
   }
 }
 
-app.post('/api/auth/register', async (req: Request, res: Response) => {
+app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) => {
   try {
     const prisma = (await import('../server/lib/database')).default;
     const { name, email, password } = req.body;
-    if (!name || !email || !password || password.length < 6) {
-      return res.status(400).json({ success: false, error: 'Name, valid email, and password (min 6 chars) required' });
+    if (!name || !email || !password || password.length < 8) {
+      return res.status(400).json({ success: false, error: 'Name, valid email, and password (min 8 chars) required' });
     }
     const normalizedEmail = email.trim().toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (existing) return res.status(409).json({ success: false, error: 'Email already registered' });
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
       data: { name: name.trim(), email: normalizedEmail, password: hashed, role: 'customer' },
     });
@@ -196,7 +243,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/auth/login', async (req: Request, res: Response) => {
+app.post('/api/auth/login', authLimiter, async (req: Request, res: Response) => {
   try {
     const prisma = (await import('../server/lib/database')).default;
     const { email, password } = req.body;
@@ -224,16 +271,11 @@ app.get('/api/auth/me', authMiddleware, async (req: Request, res: Response) => {
 // --- MOUNT ROUTES ---
 app.use('/api', async (req: Request, res: Response, next) => {
   try {
-    const [{ default: commerceRoutes }, { default: publicRoutes }, { default: webhooksRoutes }] = await Promise.all([
+    const [{ default: commerceRoutes }] = await Promise.all([
       import('../server/routes/commerce'),
-      import('../server/routes/public'),
-      import('../server/routes/webhooks'),
     ]);
-
-    return express.Router()
-      .use(commerceRoutes)
-      .use(publicRoutes)
-      .use(webhooksRoutes)(req, res, next);
+    // commerceRoutes internally mounts publicRoutes and webhookRoutes
+    return commerceRoutes(req, res, next);
   } catch (err: any) {
     console.error('API route mount failed:', err);
     return res.status(500).json({ success: false, error: err?.message || 'API route failed' });

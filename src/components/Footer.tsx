@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router';
 import { Instagram } from 'lucide-react';
 import {
   BRAND_NAME,

@@ -15,7 +15,11 @@ import {
 } from '../lib/orders';
 import publicRoutes from './public';
 import webhookRoutes from './webhooks';
-import { requireOrderEmailMatch, type RequestWithOrderAccess } from '../lib/order-access';
+import {
+  getOrderAccessEmailFromRequest,
+  requireOrderEmailMatch,
+  type RequestWithOrderAccess,
+} from '../lib/order-access';
 
 const router = Router();
 
@@ -58,6 +62,12 @@ router.post('/orders', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Invalid order payload' });
     }
 
+    const tokenEmail = getOrderAccessEmailFromRequest(req);
+    const orderEmail = body.shippingAddress.email.trim().toLowerCase();
+    if (!tokenEmail || tokenEmail !== orderEmail) {
+      return res.status(403).json({ success: false, error: 'Order email does not match verified token' });
+    }
+
     const order = await persistOrder(body);
     res.status(201).json({ success: true, order });
   } catch (error: unknown) {
@@ -90,9 +100,17 @@ router.get('/orders/:orderId', async (req: Request, res: Response) => {
   if (!isDatabaseConfigured()) return dbUnavailable(res);
 
   try {
+    const tokenEmail = getOrderAccessEmailFromRequest(req);
+    if (!tokenEmail) {
+      return res.status(401).json({ success: false, error: 'Order access token required' });
+    }
+
     const order = await getOrderByOrderId(req.params.orderId);
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    if (order.shippingAddress.email.trim().toLowerCase() !== tokenEmail) {
+      return res.status(403).json({ success: false, error: 'Access denied' });
     }
     res.json({ success: true, order });
   } catch (error: unknown) {

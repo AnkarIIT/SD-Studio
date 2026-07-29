@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+const demoOrderIds = new Set<string>();
+
 export function isRazorpayConfigured(): boolean {
   return Boolean(
     process.env.RAZORPAY_KEY_ID?.trim() && process.env.RAZORPAY_KEY_SECRET?.trim()
@@ -25,10 +27,15 @@ export async function createRazorpayOrder(
   const amountPaise = Math.round(amountInr * 100);
 
   if (!isRazorpayConfigured()) {
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+      throw new Error('Razorpay is not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
+    }
+    const demoOrderId = `order_demo_${Date.now()}`;
+    if (receipt) demoOrderIds.add(demoOrderId);
     return {
       demo: true,
       order: {
-        id: `order_demo_${Date.now()}`,
+        id: demoOrderId,
         amount: amountPaise,
         currency: 'INR',
         receipt,
@@ -70,7 +77,8 @@ export function verifyRazorpaySignature(
 ): boolean {
   const secret = process.env.RAZORPAY_KEY_SECRET?.trim();
   if (!secret) {
-    return signature.startsWith('demo_sig_') && razorpayPaymentId.startsWith('pay_demo_');
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) return false;
+    return demoOrderIds.has(razorpayOrderId);
   }
 
   const expected = crypto

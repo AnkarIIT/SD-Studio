@@ -1,4 +1,4 @@
-import { CartItem, User, WishlistItem } from '../types';
+import { CartItem, User } from '../types';
 
 const STORAGE_KEYS = {
   CART: 'sd_cart',

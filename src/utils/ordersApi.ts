@@ -28,7 +28,7 @@ export async function saveOrderToServer(order: Order): Promise<{
   try {
     const data = await fetchJSON<{ success: boolean; order?: Order; error?: string }>(`${API_BASE}/api/orders`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...orderAccessHeaders() },
       body: JSON.stringify(order),
     });
     if (!data.success) {

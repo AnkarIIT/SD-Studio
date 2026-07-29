@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import StorefrontPage from './pages/StorefrontPage';
 import ProductPage from './pages/ProductPage';
 import ContentPage from './pages/ContentPage';
+import PaymentSuccess from './pages/PaymentSuccess';
+import PaymentFailed from './pages/PaymentFailed';
 
 export default function App() {
   return (
@@ -9,6 +11,8 @@ export default function App() {
       <Routes>
         <Route path="/" element={<StorefrontPage />} />
         <Route path="/product/:id" element={<ProductPage />} />
+        <Route path="/order-success" element={<PaymentSuccess />} />
+        <Route path="/order-failed" element={<PaymentFailed />} />
         <Route path="/about" element={<ContentPage slug="about" />} />
         <Route path="/privacy" element={<ContentPage slug="privacy" />} />
         <Route path="/terms" element={<ContentPage slug="terms" />} />

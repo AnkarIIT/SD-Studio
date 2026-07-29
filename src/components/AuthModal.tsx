@@ -26,7 +26,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: { isOpen: bool
     setError('');
     if (mode === 'signup' && !name.trim()) { setError('Name is required'); return; }
     if (!email.trim()) { setError('Email is required'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (password.length < 8) { setError('Password must be at least 8 characters'); return; }
 
     setLoading(true);
     try {

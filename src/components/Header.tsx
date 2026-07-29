@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { ShoppingCart, Menu, X, Search, Heart, Package } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { useWishlistStore, useFilterStore } from '../utils/store';
 import { CATEGORY_NAV } from '../shopContent';
 import { useSiteSettings } from '../utils/siteSettings';

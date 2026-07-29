@@ -64,10 +64,28 @@ function getReturnUrl(origin?: string) {
   return `${getSafeBaseUrl(origin).replace(/\/$/, '')}/order-success?order_id={order_id}`;
 }
 
+const demoOrderIds = new Set<string>();
+
 export async function createCashfreeOrder(payload: any, origin?: string) {
   try {
+    const phone = (payload.phone || '').replace(/[^0-9]/g, '').slice(-10);
+    if (!phone || phone.length < 10) {
+      return { error: 'Valid 10-digit phone number is required' };
+    }
+
     if (!APP_ID || !SECRET_KEY) {
-      return { error: 'Cashfree credentials are not configured' };
+      if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+        return { error: 'Cashfree credentials are not configured' };
+      }
+      if (payload.orderId) demoOrderIds.add(payload.orderId);
+      return {
+        data: {
+          payment_session_id: `demo_session_${Date.now()}`,
+          order_id: payload.orderId,
+          customer_phone: phone,
+        },
+        mode: 'demo' as const,
+      };
     }
 
     const runtime = getRuntime(origin);
@@ -87,7 +105,7 @@ export async function createCashfreeOrder(payload: any, origin?: string) {
           customer_id: (payload.email || 'guest').replace(/[^a-zA-Z0-9]/g, '_'),
           customer_name: payload.name,
           customer_email: payload.email,
-          customer_phone: (payload.phone || '').replace(/[^0-9]/g, '').slice(-10) || '9999999999',
+          customer_phone: phone,
         },
         order_meta: {
           return_url: getReturnUrl(origin),
@@ -111,7 +129,10 @@ export async function createCashfreeOrder(payload: any, origin?: string) {
 
 export async function verifyCashfreePayment(orderId: string, origin?: string) {
   try {
-    if (!APP_ID || !SECRET_KEY) return false;
+    if (!APP_ID || !SECRET_KEY) {
+      if (process.env.NODE_ENV === 'production' || process.env.VERCEL) return false;
+      return demoOrderIds.has(orderId);
+    }
 
     const runtime = getRuntime(origin);
     const response = await fetch(`${runtime.baseUrl}/orders/${orderId}`, {

@@ -1,5 +1,6 @@
 import prisma, { auditRepo, deliveryRepo, paymentRepo } from './database';
 import { addTimelineEvent, seedInitialTimeline } from './timeline';
+import { PRODUCTS } from '../../src/constants';
 import type { Address, CartItem, Order } from '../../src/types';
 
 export function isDatabaseConfigured(): boolean {
@@ -20,6 +21,56 @@ export type CreateOrderPayload = {
   couponCode?: string;
   shippingAddress: Address;
 };
+
+function recalculateOrderTotals(payload: CreateOrderPayload): {
+  subtotal: number;
+  total: number;
+  valid: boolean;
+  errors: string[];
+} {
+  const errors: string[] = [];
+
+  if (!payload.items || payload.items.length === 0) {
+    return { subtotal: 0, total: 0, valid: false, errors: ['Order must contain at least one item'] };
+  }
+
+  let calculatedSubtotal = 0;
+  for (const item of payload.items) {
+    const catalogProduct = PRODUCTS.find(p => p.id === item.id);
+    if (!catalogProduct) {
+      errors.push(`Invalid product: ${item.name} (${item.id})`);
+      continue;
+    }
+    const catalogPrice = catalogProduct.originalPrice ?? catalogProduct.price;
+    if (Math.abs(item.price - catalogPrice) > 1) {
+      errors.push(`Price mismatch for ${item.name}: client=${item.price}, catalog=${catalogPrice}`);
+    }
+    calculatedSubtotal += catalogPrice * item.quantity;
+  }
+
+  if (errors.length > 0) {
+    return { subtotal: calculatedSubtotal, total: 0, valid: false, errors };
+  }
+
+  const validatedSubtotal = payload.subtotal;
+  const expectedSubtotal = payload.items.reduce((s, i) => s + i.price * i.quantity, 0);
+  if (Math.abs(validatedSubtotal - expectedSubtotal) > 1) {
+    errors.push(`Subtotal mismatch: declared=${validatedSubtotal}, calculated=${expectedSubtotal}`);
+  }
+
+  const validatedTotal = payload.total;
+  const expectedTotal = validatedSubtotal + (payload.tax || 0) + (payload.shipping || 0) - (payload.discount || 0);
+  if (Math.abs(validatedTotal - expectedTotal) > 1) {
+    errors.push(`Total mismatch: declared=${validatedTotal}, calculated=${expectedTotal}`);
+  }
+
+  return {
+    subtotal: validatedSubtotal,
+    total: validatedTotal,
+    valid: errors.length === 0,
+    errors,
+  };
+}
 
 function mapRowToOrder(row: {
   orderId: string;
@@ -56,6 +107,17 @@ function mapRowToOrder(row: {
 }
 
 export async function persistOrder(payload: CreateOrderPayload): Promise<Order> {
+  // Server-side price validation
+  const validation = recalculateOrderTotals(payload);
+  if (!validation.valid) {
+    console.error('Order price validation failed:', validation.errors);
+    // In production, reject invalid orders. In dev, warn but allow.
+    if (process.env.NODE_ENV === 'production' || process.env.VERCEL) {
+      throw new Error(`Order validation failed: ${validation.errors.join('; ')}`);
+    }
+    console.warn('⚠️  Order price validation warnings (dev mode, allowing):', validation.errors);
+  }
+
   const email = payload.shippingAddress.email.trim().toLowerCase();
   const customerId = email;
   const addressJson = JSON.stringify(payload.shippingAddress);

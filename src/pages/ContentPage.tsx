@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link } from 'react-router';
 import { ArrowLeft } from 'lucide-react';
 import { CONTENT_PAGES, type ContentSlug } from '../contentPages';
 import ThemeToggle from '../components/ThemeToggle';

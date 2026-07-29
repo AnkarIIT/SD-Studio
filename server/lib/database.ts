@@ -24,14 +24,13 @@ function createPrismaClient(): PrismaClient {
 // Singleton instance to prevent exhausting connections in serverless environments
 let prisma: PrismaClient;
 
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+
 if (!process.env.VERCEL) {
-  // @ts-ignore
-  if (!global.prisma) {
-    // @ts-ignore
-    global.prisma = createPrismaClient();
+  if (!globalForPrisma.prisma) {
+    globalForPrisma.prisma = createPrismaClient();
   }
-  // @ts-ignore
-  prisma = global.prisma;
+  prisma = globalForPrisma.prisma;
 } else {
   prisma = createPrismaClient();
 }

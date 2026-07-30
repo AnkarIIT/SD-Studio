@@ -56,7 +56,4 @@ terminals/
 scraped_frontend/
 
 # Generated server JS (compiled from TS for Vercel)
-server/*.js
-server/lib/*.js
-server/routes/*.js
-src/constants.js
+api/_lib/

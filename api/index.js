@@ -3,19 +3,19 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
-import '../server/env.js';
+import './_lib/env.js';
 
-import prisma from '../server/lib/database.js';
-import { createCashfreeOrder, verifyCashfreePayment } from '../server/lib/cashfree.js';
-import { persistOrder, computeServerAmount, getOrderByOrderId, isDatabaseConfigured } from '../server/lib/orders.js';
-import { getCatalogProducts, getCouponDiscount } from '../server/lib/catalog.js';
-import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpaySignature } from '../server/lib/razorpay.js';
-import { enqueuePaymentVerification } from '../server/lib/payment-queue.js';
-import { getOrderTimeline } from '../server/lib/timeline.js';
-import { getOrderAccessEmailFromRequest } from '../server/lib/order-access.js';
+import prisma from './_lib/database.js';
+import { createCashfreeOrder, verifyCashfreePayment } from './_lib/cashfree.js';
+import { persistOrder, computeServerAmount, getOrderByOrderId, isDatabaseConfigured } from './_lib/orders.js';
+import { getCatalogProducts, getCouponDiscount } from './_lib/catalog.js';
+import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpaySignature } from './_lib/razorpay.js';
+import { enqueuePaymentVerification } from './_lib/payment-queue.js';
+import { getOrderTimeline } from './_lib/timeline.js';
+import { getOrderAccessEmailFromRequest } from './_lib/order-access.js';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import commerceRoutes from '../server/routes/commerce.js';
+import commerceRoutes from './_lib/commerce.js';
 
 const app = express();
 

@@ -12,6 +12,7 @@
     "server": "tsx watch api/index.ts",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
+    "postinstall": "prisma generate",
     "clean": "node -e \"fs.rmSync('dist',{recursive:true,force:true})\"",
     "lint": "tsc --noEmit",
     "test:e2e": "playwright test",

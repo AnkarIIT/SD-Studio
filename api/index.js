@@ -1,18 +1,17 @@
-import express from 'express';
-import cors from 'cors';
-import bodyParser from 'body-parser';
-import rateLimit from 'express-rate-limit';
-import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
+import express from 'express';
 
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
-app.use(bodyParser.json({ limit: '1mb' }));
+
+let prismaInitError = null;
+try {
+  const prisma = new PrismaClient();
+} catch (e) {
+  prismaInitError = e.message;
+}
 
 app.get('/api/ping', (req, res) => {
-  res.json({ success: true, message: 'pong' });
+  res.json({ success: true, message: 'pong', prismaError: prismaInitError });
 });
 
 export default app;

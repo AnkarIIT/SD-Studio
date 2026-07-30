@@ -4,20 +4,19 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
-import '../server/env'; // Load env first
+import './_lib/env';
 
-// Static imports for Vercel bundler compatibility
-import prisma from '../server/lib/database';
-import { createCashfreeOrder, verifyCashfreePayment } from '../server/lib/cashfree';
-import { persistOrder, computeServerAmount, getOrderByOrderId, isDatabaseConfigured } from '../server/lib/orders';
-import { getCatalogProducts, getCouponDiscount } from '../server/lib/catalog';
-import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpaySignature } from '../server/lib/razorpay';
-import { enqueuePaymentVerification } from '../server/lib/payment-queue';
-import { getOrderTimeline } from '../server/lib/timeline';
-import { getOrderAccessEmailFromRequest } from '../server/lib/order-access';
+import prisma from './_lib/database';
+import { createCashfreeOrder, verifyCashfreePayment } from './_lib/cashfree';
+import { persistOrder, computeServerAmount, getOrderByOrderId, isDatabaseConfigured } from './_lib/orders';
+import { getCatalogProducts, getCouponDiscount } from './_lib/catalog';
+import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpaySignature } from './_lib/razorpay';
+import { enqueuePaymentVerification } from './_lib/payment-queue';
+import { getOrderTimeline } from './_lib/timeline';
+import { getOrderAccessEmailFromRequest } from './_lib/order-access';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import commerceRoutes from '../server/routes/commerce';
+import commerceRoutes from './_routes/commerce';
 
 const app: Express = express();
 

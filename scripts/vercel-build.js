@@ -5,12 +5,12 @@ import { platform } from 'os';
 
 const root = process.cwd();
 const apiDir = resolve(root, 'api');
-const shell = platform() === 'win32' ? 'powershell.exe' : undefined;
+const esbuildBin = resolve(root, 'node_modules', '.bin', platform() === 'win32' ? 'esbuild.cmd' : 'esbuild');
 
 console.log('[vercel-build] Bundling API entry point...');
 execSync(
-  `npx esbuild api/index.ts --bundle --platform=node --outfile=api/index.js --external:@prisma/client`,
-  { stdio: 'inherit', cwd: root, shell }
+  `"${esbuildBin}" api/index.ts --bundle --platform=node --format=cjs --outfile=api/index.cjs --external:@prisma/client`,
+  { stdio: 'inherit', cwd: root }
 );
 
 const tsEntry = resolve(apiDir, 'index.ts');
@@ -25,6 +25,11 @@ for (const dir of ['_lib', '_routes']) {
     console.log(`[vercel-build] Removing api/${dir}...`);
     rmSync(p, { recursive: true, force: true });
   }
+}
+
+const oldJs = resolve(apiDir, 'index.js');
+if (existsSync(oldJs)) {
+  rmSync(oldJs);
 }
 
 console.log('[vercel-build] Done.');

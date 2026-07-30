@@ -74,6 +74,12 @@ export default function FooterReplica() {
                 </motion.a>
               ))}
             </div>
+
+            <div className="pt-4 flex flex-wrap gap-x-6 gap-y-2">
+              <motion.a variants={itemVariants} href="/terms" className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-[#925FE2] transition-colors">T&C</motion.a>
+              <motion.a variants={itemVariants} href="/returns" className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-[#925FE2] transition-colors">Refund Policy</motion.a>
+              <motion.a variants={itemVariants} href="/privacy" className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-[#925FE2] transition-colors">Privacy</motion.a>
+            </div>
           </div>
         </motion.div>
 

@@ -6,6 +6,19 @@ import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 import '../server/env'; // Load env first
 
+// Static imports for Vercel bundler compatibility
+import prisma from '../server/lib/database';
+import { createCashfreeOrder, verifyCashfreePayment } from '../server/lib/cashfree';
+import { persistOrder, computeServerAmount, getOrderByOrderId, isDatabaseConfigured } from '../server/lib/orders';
+import { getCatalogProducts, getCouponDiscount } from '../server/lib/catalog';
+import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpaySignature } from '../server/lib/razorpay';
+import { enqueuePaymentVerification } from '../server/lib/payment-queue';
+import { getOrderTimeline } from '../server/lib/timeline';
+import { getOrderAccessEmailFromRequest } from '../server/lib/order-access';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import commerceRoutes from '../server/routes/commerce';
+
 const app: Express = express();
 
 const ALLOWED_ORIGINS = (() => {
@@ -75,7 +88,6 @@ const paymentLimiter = rateLimit({
 // --- CASHFREE ---
 app.post('/api/payments/cashfree/order', paymentLimiter, async (req: Request, res: Response) => {
   try {
-    const { createCashfreeOrder } = await import('../server/lib/cashfree');
     const { orderId, items, couponCode, customerName, customerEmail, customerPhone } = req.body;
     const origin = req.headers.origin;
     const { data, error, mode } = await createCashfreeOrder({
@@ -99,9 +111,6 @@ app.post('/api/payments/cashfree/order', paymentLimiter, async (req: Request, re
 
 app.post('/api/payments/cashfree/verify', paymentLimiter, async (req: Request, res: Response) => {
   try {
-    const { verifyCashfreePayment } = await import('../server/lib/cashfree');
-    const { persistOrder } = await import('../server/lib/orders');
-    const { getCatalogProducts, getCouponDiscount } = await import('../server/lib/catalog');
     const { orderId, items, shippingAddress, couponCode, paymentMethod } = req.body;
     const origin = req.headers.origin;
     const isPaid = await verifyCashfreePayment(orderId, origin);
@@ -149,8 +158,6 @@ app.get('/api/health', (req, res) => {
 // --- RAZORPAY ---
 app.post('/api/payments/razorpay/order', paymentLimiter, async (req: Request, res: Response) => {
   try {
-    const { createRazorpayOrder, getRazorpayKeyId } = await import('../server/lib/razorpay');
-    const { computeServerAmount } = await import('../server/lib/orders');
     const { orderId, items, couponCode } = req.body;
     const { amount, errors } = await computeServerAmount(items, couponCode);
     if (errors.length > 0) {
@@ -166,9 +173,6 @@ app.post('/api/payments/razorpay/order', paymentLimiter, async (req: Request, re
 
 app.post('/api/payments/razorpay/verify', paymentLimiter, async (req: Request, res: Response) => {
   try {
-    const { verifyRazorpaySignature } = await import('../server/lib/razorpay');
-    const { persistOrder } = await import('../server/lib/orders');
-    const { getCatalogProducts, getCouponDiscount } = await import('../server/lib/catalog');
     const { orderId, razorpayOrderId, razorpayPaymentId, razorpaySignature, items, shippingAddress, couponCode } = req.body;
 
     const valid = verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature);
@@ -206,7 +210,6 @@ app.post('/api/payments/razorpay/verify', paymentLimiter, async (req: Request, r
 // --- PAYMENT CONFIG ---
 app.get('/api/payments/config', async (_req: Request, res: Response) => {
   try {
-    const { isRazorpayConfigured, getRazorpayKeyId } = await import('../server/lib/razorpay');
     const configured = isRazorpayConfigured();
     res.json({
       razorpayEnabled: configured,
@@ -220,7 +223,6 @@ app.get('/api/payments/config', async (_req: Request, res: Response) => {
 // --- PAYMENT VERIFICATION QUEUE ---
 app.post('/api/payments/verify-queue', paymentLimiter, async (req: Request, res: Response) => {
   try {
-    const { enqueuePaymentVerification } = await import('../server/lib/payment-queue');
     const { orderId, method, reference, amount } = req.body;
 
     await enqueuePaymentVerification({ orderId, method, reference, amount });
@@ -234,10 +236,6 @@ app.post('/api/payments/verify-queue', paymentLimiter, async (req: Request, res:
 // --- ORDER TIMELINE ---
 app.get('/api/orders/:orderId/timeline', async (req: Request, res: Response) => {
   try {
-    const { getOrderTimeline } = await import('../server/lib/timeline');
-    const { getOrderByOrderId } = await import('../server/lib/orders');
-    const { getOrderAccessEmailFromRequest } = await import('../server/lib/order-access');
-
     const tokenEmail = getOrderAccessEmailFromRequest(req);
     if (!tokenEmail) {
       return res.status(401).json({ success: false, error: 'Order access token required' });
@@ -256,9 +254,6 @@ app.get('/api/orders/:orderId/timeline', async (req: Request, res: Response) => 
 });
 
 // --- CUSTOMER AUTH ---
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const DUMMY_BCRYPT_HASH = '$2b$12$LJ3m4ys3Lk0TSwHlgntFou0N4F1k7tCBmGspMOFNYpSZqJk/Mn/pe';
@@ -275,7 +270,6 @@ async function getJwtSecret(): Promise<string> {
   }
 
   try {
-    const prisma = (await import('../server/lib/database')).default;
     const row = await prisma.siteConfig.findUnique({ where: { id: 'jwt_secret' } });
     if (row?.data) {
       _jwtSecret = row.data;
@@ -285,7 +279,6 @@ async function getJwtSecret(): Promise<string> {
 
   const generated = crypto.randomBytes(32).toString('hex');
   try {
-    const prisma = (await import('../server/lib/database')).default;
     await prisma.siteConfig.upsert({
       where: { id: 'jwt_secret' },
       create: { id: 'jwt_secret', data: generated },
@@ -315,7 +308,6 @@ async function authMiddleware(req: Request, res: Response, next: NextFunction) {
 
 app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) => {
   try {
-    const prisma = (await import('../server/lib/database')).default;
     const { name, email, password } = req.body;
     if (!name || !email || !PASSWORD_REGEX.test(password)) {
       return res.status(400).json({ success: false, error: 'Name, valid email, and password (min 8 chars, uppercase, lowercase, digit) required' });
@@ -341,7 +333,6 @@ app.post('/api/auth/register', authLimiter, async (req: Request, res: Response) 
 
 app.post('/api/auth/login', authLimiter, async (req: Request, res: Response) => {
   try {
-    const prisma = (await import('../server/lib/database')).default;
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ success: false, error: 'Email and password required' });
 
@@ -366,18 +357,7 @@ app.get('/api/auth/me', authLimiter, authMiddleware, async (req: Request, res: R
 });
 
 // --- MOUNT ROUTES ---
-app.use('/api', async (req: Request, res: Response, next) => {
-  try {
-    const [{ default: commerceRoutes }] = await Promise.all([
-      import('../server/routes/commerce'),
-    ]);
-    // commerceRoutes internally mounts publicRoutes and webhookRoutes
-    return commerceRoutes(req, res, next);
-  } catch (err: any) {
-    console.error('API route mount failed:', err);
-    return res.status(500).json({ success: false, error: err?.message || 'API route failed' });
-  }
-});
+app.use('/api', commerceRoutes);
 
 if (!process.env.VERCEL) {
   const port = Number(process.env.NOTIFICATION_PORT || 5001);

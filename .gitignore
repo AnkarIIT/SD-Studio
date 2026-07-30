@@ -54,3 +54,9 @@ terminals/
 
 # Scraped assets from old site (large)
 scraped_frontend/
+
+# Generated server JS (compiled from TS for Vercel)
+server/*.js
+server/lib/*.js
+server/routes/*.js
+src/constants.js

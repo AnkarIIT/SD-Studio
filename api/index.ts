@@ -4,19 +4,19 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
-import './_lib/env';
+import '../server/env';
 
-import prisma from './_lib/database';
-import { createCashfreeOrder, verifyCashfreePayment } from './_lib/cashfree';
-import { persistOrder, computeServerAmount, getOrderByOrderId, isDatabaseConfigured } from './_lib/orders';
-import { getCatalogProducts, getCouponDiscount } from './_lib/catalog';
-import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpaySignature } from './_lib/razorpay';
-import { enqueuePaymentVerification } from './_lib/payment-queue';
-import { getOrderTimeline } from './_lib/timeline';
-import { getOrderAccessEmailFromRequest } from './_lib/order-access';
+import prisma from '../server/lib/database';
+import { createCashfreeOrder, verifyCashfreePayment } from '../server/lib/cashfree';
+import { persistOrder, computeServerAmount, getOrderByOrderId, isDatabaseConfigured } from '../server/lib/orders';
+import { getCatalogProducts, getCouponDiscount } from '../server/lib/catalog';
+import { createRazorpayOrder, getRazorpayKeyId, isRazorpayConfigured, verifyRazorpaySignature } from '../server/lib/razorpay';
+import { enqueuePaymentVerification } from '../server/lib/payment-queue';
+import { getOrderTimeline } from '../server/lib/timeline';
+import { getOrderAccessEmailFromRequest } from '../server/lib/order-access';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import commerceRoutes from './_routes/commerce';
+import commerceRoutes from '../server/routes/commerce';
 
 const app: Express = express();
 
@@ -30,7 +30,6 @@ const ALLOWED_ORIGINS = (() => {
   return origins;
 })();
 
-// Middleware
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) cb(null, true);
@@ -47,7 +46,6 @@ app.use(bodyParser.json({
 }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
-// Global error handler for JSON errors
 app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
   if (err) {
     console.error('SERVER ERROR:', err);
@@ -60,7 +58,6 @@ app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
   return next();
 });
 
-// Rate limiters
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 30,
@@ -77,7 +74,6 @@ const paymentLimiter = rateLimit({
   message: { success: false, error: 'Too many payment requests. Try again later.' },
 });
 
-// --- DEBUG ---
 app.get('/api/debug/env', (req, res) => {
   res.json({
     vercel: !!process.env.VERCEL,
@@ -88,7 +84,6 @@ app.get('/api/debug/env', (req, res) => {
   });
 });
 
-// --- CASHFREE ---
 app.post('/api/payments/cashfree/order', paymentLimiter, async (req: Request, res: Response) => {
   try {
     const { orderId, items, couponCode, customerName, customerEmail, customerPhone } = req.body;
@@ -143,12 +138,10 @@ app.post('/api/payments/cashfree/verify', paymentLimiter, async (req: Request, r
   }
 });
 
-// --- PING ---
 app.get('/api/ping', (req, res) => {
   res.json({ success: true, message: 'pong', timestamp: new Date().toISOString() });
 });
 
-// --- CUSTOMER AUTH ---
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
 const DUMMY_BCRYPT_HASH = '$2b$12$LJ3m4ys3Lk0TSwHlgntFou0N4F1k7tCBmGspMOFNYpSZqJk/Mn/pe';
@@ -217,7 +210,6 @@ app.post('/api/auth/login', authLimiter, async (req: Request, res: Response) => 
   }
 });
 
-// --- MOUNT COMMERCE ROUTES ---
 app.use('/api', commerceRoutes);
 
 if (!process.env.VERCEL) {

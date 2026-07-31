@@ -50,7 +50,7 @@ export const CONTENT_PAGES: Record<
   },
   terms: {
     title: 'Terms & Conditions',
-    subtitle: 'Effective Date: [DD/MM/YYYY]',
+    subtitle: 'Effective Date: 01/08/2026',
     sections: [
       {
         heading: 'About Us',

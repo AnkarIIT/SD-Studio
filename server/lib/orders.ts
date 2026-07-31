@@ -83,6 +83,18 @@ async function recalculateOrderTotals(payload: CreateOrderPayload): Promise<{
     errors.push(`Total mismatch: declared=${validatedTotal}, calculated=${expectedTotal}`);
   }
 
+  if (payload.couponCode) {
+    try {
+      const { getSiteConfig, couponDiscount } = await import('./site-config');
+      const config = await getSiteConfig();
+      const expectedDiscount = Math.round(couponDiscount(config.coupons?.[payload.couponCode], validatedSubtotal) * 100) / 100;
+      const declaredDiscount = Math.round((payload.discount || 0) * 100) / 100;
+      if (Math.abs(declaredDiscount - expectedDiscount) > 0.01) {
+        errors.push(`Coupon discount mismatch: declared=${declaredDiscount}, calculated=${expectedDiscount}`);
+      }
+    } catch { /* ignore coupon validation errors */ }
+  }
+
   return {
     subtotal: validatedSubtotal,
     total: validatedTotal,
@@ -116,13 +128,9 @@ export async function computeServerAmount(
 
   if (couponCode) {
     try {
-      const { getSiteConfig } = await import('./site-config');
+      const { getSiteConfig, couponDiscount } = await import('./site-config');
       const config = await getSiteConfig();
-      const coupon = config.coupons?.[couponCode];
-      if (coupon) {
-        const discount = Math.round(subtotal * coupon.percent / 100 * 100) / 100;
-        total -= discount;
-      }
+      total -= couponDiscount(config.coupons?.[couponCode], subtotal);
     } catch { /* ignore coupon lookup errors */ }
   }
 
@@ -268,6 +276,13 @@ export async function persistOrder(payload: CreateOrderPayload): Promise<Order> 
   });
 
   await auditRepo.log('order', payload.id, 'created', { total: payload.total, status: payload.status });
+
+  if (payload.couponCode) {
+    try {
+      const { incrementCouponUsage } = await import('./site-config');
+      await incrementCouponUsage(payload.couponCode);
+    } catch { /* best effort usage tracking */ }
+  }
 
   const isNew = !(await prisma.orderTimelineEvent.findFirst({
     where: { orderId: payload.id, stage: 'order_placed' },

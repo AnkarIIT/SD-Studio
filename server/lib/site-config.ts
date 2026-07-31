@@ -68,6 +68,69 @@ export const DEFAULT_SITE_CONFIG: SiteConfigData = {
   },
 };
 
+export type StoredCoupon = {
+  id?: string;
+  code?: string;
+  label?: string;
+  type?: 'Percentage' | 'Fixed Amount';
+  value?: number;
+  percent?: number;
+  minOrderValue?: number;
+  expiryDate?: string;
+  usageLimit?: number;
+  timesUsed?: number;
+  status?: string;
+};
+
+// Returns a human-readable reason the coupon cannot be used, or null if it can.
+export function couponIssue(coupon: StoredCoupon | undefined, subtotal: number): string | null {
+  if (!coupon) return 'Invalid coupon code';
+  const status = coupon.status;
+  if (status && status !== 'Active') return 'This coupon is no longer active';
+  if (coupon.expiryDate) {
+    const expiry = new Date(`${coupon.expiryDate}T23:59:59`);
+    if (!Number.isNaN(expiry.getTime()) && expiry.getTime() < Date.now()) {
+      return 'This coupon has expired';
+    }
+  }
+  const min = Number(coupon.minOrderValue) || 0;
+  if (min > 0 && subtotal < min) {
+    return `Minimum order of \u20B9${min} required`;
+  }
+  const limit = Number(coupon.usageLimit) || 0;
+  const used = Number(coupon.timesUsed) || 0;
+  if (limit > 0 && used >= limit) {
+    return 'This coupon has reached its usage limit';
+  }
+  return null;
+}
+
+export function couponDiscount(coupon: StoredCoupon | undefined, subtotal: number): number {
+  if (!coupon || couponIssue(coupon, subtotal)) return 0;
+  if (coupon.type === 'Fixed Amount') {
+    return Math.min(Number(coupon.value) || 0, subtotal);
+  }
+  const pct = Number(coupon.percent != null ? coupon.percent : coupon.value) || 0;
+  return Math.round(subtotal * pct) / 100;
+}
+
+export async function incrementCouponUsage(code: string): Promise<void> {
+  try {
+    const row = await prisma.siteConfig.findUnique({ where: { id: 'global' } });
+    if (!row) return;
+    const data = JSON.parse(row.data);
+    const coupon = data?.coupons?.[code];
+    if (!coupon) return;
+    coupon.timesUsed = (Number(coupon.timesUsed) || 0) + 1;
+    await prisma.siteConfig.update({
+      where: { id: 'global' },
+      data: { data: JSON.stringify(data) },
+    });
+  } catch {
+    // best effort — never block an order on usage tracking
+  }
+}
+
 export async function getSiteConfig(): Promise<SiteConfigData> {
   const row = await prisma.siteConfig.findUnique({ where: { id: 'global' } });
   if (!row) return { ...DEFAULT_SITE_CONFIG };

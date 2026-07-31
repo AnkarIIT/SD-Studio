@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, X, ShoppingBag, MapPin, CreditCard, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Address, CartItem, Order } from '../types';
-import { getOrderTotals } from '../utils/commerce';
+import { getOrderTotals, couponIssue, couponDiscount } from '../utils/commerce';
 import { addressSchema, validateForm } from '../utils/validation';
 import { useCartStore, useOrderStore, useUserStore } from '../utils/store';
 import { useSiteSettings } from '../utils/siteSettings';
@@ -216,7 +216,17 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
               <CheckoutSummary items={items} {...totals}>
                 <div className="flex gap-2">
                   <input value={couponCode} onChange={e => setCouponCode(e.target.value)} placeholder="Coupon" className="flex-1 border rounded-lg px-3 py-2 text-sm dark:bg-zinc-800 dark:border-zinc-700 outline-none focus:border-[#925FE2]" />
-                  <button type="button" onClick={() => { (siteSettings as any).coupons?.[couponCode.toUpperCase()] ? (setAppliedCoupon(couponCode.toUpperCase()), toast.success('Applied!')) : toast.error('Invalid') }} className="px-4 border rounded-lg text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Apply</button>
+                  <button type="button" onClick={() => {
+                    const code = couponCode.trim().toUpperCase();
+                    if (!code) { toast.error('Enter a coupon code'); return; }
+                    const coupon = (siteSettings.coupons || {})[code];
+                    const issue = couponIssue(coupon, totals.subtotal);
+                    if (issue) { toast.error(issue); return; }
+                    const disc = couponDiscount(coupon, totals.subtotal);
+                    setAppliedCoupon(code);
+                    setCouponCode('');
+                    toast.success(disc > 0 ? `Coupon applied — you save ₹${disc}` : 'Coupon applied!');
+                  }} className="px-4 border rounded-lg text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors">Apply</button>
                 </div>
                 {sdkError && (
                   <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl text-xs text-red-700 dark:text-red-400">

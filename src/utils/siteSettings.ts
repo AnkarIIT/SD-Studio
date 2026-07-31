@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { HERO_SLIDES } from '../shopContent';
+import type { CouponEntry } from './commerce';
 
 export type HeroSlide = (typeof HERO_SLIDES)[number];
 
@@ -13,7 +14,7 @@ export interface SiteSettings {
   newsletterEnabled: boolean;
   freeShippingThreshold: number;
   heroSlides: HeroSlide[];
-  coupons?: Record<string, { label: string; percent: number }>;
+  coupons?: Record<string, CouponEntry>;
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {

@@ -51,13 +51,18 @@ function getRuntime(origin?: string): { mode: CashfreeMode; baseUrl: string } {
   return { mode, baseUrl: mode === 'production' ? PRODUCTION_BASE_URL : SANDBOX_BASE_URL };
 }
 
+function ensureProtocol(url: string): string {
+  return url.match(/^https?:\/\//) ? url : `https://${url}`;
+}
+
 function getSafeBaseUrl(origin?: string): string {
   const configuredFrontendUrl = process.env.FRONTEND_URL?.trim();
   const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '';
   const originIsLocal = isLocalHostname(getHostname(origin));
-  return originIsLocal
+  const base = originIsLocal
     ? configuredFrontendUrl || origin || 'http://localhost:3000'
     : configuredFrontendUrl || origin || vercelUrl || 'http://localhost:3000';
+  return ensureProtocol(base);
 }
 
 function getReturnUrl(origin?: string) {

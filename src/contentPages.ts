@@ -1,4 +1,4 @@
-import { BRAND_NAME, BRAND_INSTAGRAM_URL, BRAND_INSTAGRAM_HANDLE, BRAND_SUPPORT_EMAIL } from './brand';
+import { BRAND_NAME, BRAND_INSTAGRAM_URL, BRAND_INSTAGRAM_HANDLE, BRAND_SUPPORT_EMAIL, BRAND_SITE_URL } from './brand';
 
 export type ContentSlug =
   | 'about'
@@ -50,19 +50,71 @@ export const CONTENT_PAGES: Record<
   },
   terms: {
     title: 'Terms & Conditions',
-    subtitle: `${BRAND_NAME} Store`,
+    subtitle: 'Effective Date: [DD/MM/YYYY]',
     sections: [
       {
-        heading: 'Orders',
-        body: 'All products are made to order unless marked in stock. Production begins after payment verification (or COD confirmation).',
+        heading: 'About Us',
+        body: '3DbySD designs and sells 3D printed, customized and made-to-order products.',
+      },
+      {
+        heading: 'Eligibility',
+        body: 'You must be 18 or older, or have permission from a parent or guardian.',
+      },
+      {
+        heading: 'Products',
+        body: 'Minor layer lines and colour variations are normal in 3D printed products.',
+      },
+      {
+        heading: 'Custom Orders',
+        body: 'Customers are responsible for the accuracy of names, text, logos and uploaded files.',
       },
       {
         heading: 'Pricing',
-        body: 'Prices are in INR and include applicable taxes where stated. Shipping is calculated at checkout; free shipping applies above the threshold shown on the site.',
+        body: 'All prices are in INR and may change without notice.',
       },
       {
-        heading: 'Liability',
-        body: '3D prints may show visible layer lines and minor surface variation — this is normal for the process. We warrant against structural defects on arrival.',
+        heading: 'Payments',
+        body: 'Orders are confirmed only after payment or COD confirmation where applicable.',
+      },
+      {
+        heading: 'Production & Shipping',
+        body: 'Production and delivery times are estimates and may vary.',
+      },
+      {
+        heading: 'Returns & Refunds',
+        body: 'Customized products are non-returnable unless damaged, defective or incorrect due to our error.',
+      },
+      {
+        heading: 'Damaged Orders',
+        body: 'Report damage within 48 hours with photos.',
+      },
+      {
+        heading: 'Intellectual Property',
+        body: 'All branding, designs and content belong to 3DbySD.',
+      },
+      {
+        heading: 'Customer Content',
+        body: 'Customers confirm they have rights to uploaded artwork.',
+      },
+      {
+        heading: 'Limitation of Liability',
+        body: 'Liability is limited to the purchase value of the product.',
+      },
+      {
+        heading: 'Privacy',
+        body: 'Customer information is handled according to our Privacy Policy.',
+      },
+      {
+        heading: 'Governing Law',
+        body: 'Governed by the laws of India; jurisdiction: Lucknow, Uttar Pradesh.',
+      },
+      {
+        heading: 'Changes',
+        body: 'We may update these Terms by publishing a revised version.',
+      },
+      {
+        heading: 'Contact',
+        body: `Email: ${BRAND_SUPPORT_EMAIL} | Website: ${BRAND_SITE_URL}`,
       },
     ],
   },

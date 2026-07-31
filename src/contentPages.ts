@@ -120,7 +120,7 @@ export const CONTENT_PAGES: Record<
   },
   shipping: {
     title: 'Shipping Information',
-    subtitle: 'Pan-India delivery',
+    subtitle: 'Delivery across India',
     sections: [
       {
         heading: 'Processing',
@@ -129,10 +129,6 @@ export const CONTENT_PAGES: Record<
       {
         heading: 'Carriers',
         body: 'We ship via trusted courier partners with tracking. You will receive tracking details when your order leaves the lab.',
-      },
-      {
-        heading: 'Free shipping',
-        body: 'Orders above ₹5,000 qualify for free shipping within India.',
       },
     ],
   },

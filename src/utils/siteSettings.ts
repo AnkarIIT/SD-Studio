@@ -18,11 +18,11 @@ export interface SiteSettings {
 }
 
 const DEFAULT_SETTINGS: SiteSettings = {
-  promoBarText: 'Welcome to 3DbySD · Free shipping on orders above ₹999',
+  promoBarText: 'Welcome to 3DbySD · Made to order in India',
   trustItems: [
     'Custom made just for you',
     'Secure payments · 100% safe & secure',
-    'Fast delivery · Pan India shipping',
+    'Made to order · Ships in 1–7 days',
   ],
   maintenanceMode: false,
   codEnabled: true,

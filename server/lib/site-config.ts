@@ -21,9 +21,8 @@ export type SiteConfigData = {
 };
 
 export const DEFAULT_SITE_CONFIG: SiteConfigData = {
-  promoBarText: 'Free shipping above ₹5,000 · UPI · Card demo · COD · Pan-India',
+  promoBarText: 'Welcome to 3DbySD · Made to order in India',
   trustItems: [
-    'Free shipping on orders above ₹5,000',
     '7-day returns on defective prints',
     'Made to order · Ships in 1–7 days',
   ],
@@ -50,15 +49,6 @@ export const DEFAULT_SITE_CONFIG: SiteConfigData = {
       subtitle: 'Custom Lab · FDM & resin · Ships in 1–7 days',
       cta: 'Custom Lab',
       href: '#custom-lab',
-    },
-    {
-      id: 'free-ship',
-      image: '/categories/collectibles.jpg',
-      imageAlt: 'Collectible 3D print',
-      title: 'Free shipping over ₹5,000',
-      subtitle: 'UPI · Card demo · Bank transfer · COD',
-      cta: 'View catalog',
-      href: '#catalog',
     },
   ],
   coupons: {

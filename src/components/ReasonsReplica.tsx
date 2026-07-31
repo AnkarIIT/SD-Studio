@@ -12,7 +12,7 @@ export default function ReasonsReplica() {
     },
     {
       icon: '🚚',
-      title: 'Pan India Delivery',
+      title: 'Secure Shipping',
       description: 'Secure shipping to customers across India.',
     },
     {

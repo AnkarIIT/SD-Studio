@@ -17,15 +17,6 @@ export const HERO_SLIDES = [
     cta: 'Custom Lab',
     href: '#custom-lab',
   },
-  {
-    id: 'free-ship',
-    image: '/categories/collectibles.jpg',
-    imageAlt: '3D-printed collectible figurine — free shipping promo',
-    title: 'Free shipping over ₹5,000',
-    subtitle: 'UPI · Cards · Bank transfer · COD',
-    cta: 'View catalog',
-    href: '#catalog',
-  },
 ];
 
 export const CATEGORY_TILES = [

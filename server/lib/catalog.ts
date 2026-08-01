@@ -65,11 +65,72 @@ function dbImages(row: { images: any }): string[] {
   return row.images.filter((i): i is string => typeof i === 'string' && i.length > 0);
 }
 
-function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean; images: any }): Product {
+const HIDDEN_STATUSES = new Set(['inactive', 'draft', 'archived', 'hidden', 'unlisted', 'deleted', 'disabled', 'out of stock']);
+
+function isHiddenStatus(status: string | null | undefined): boolean {
+  if (!status) return false;
+  return HIDDEN_STATUSES.has(status.trim().toLowerCase());
+}
+
+function dbStock(row: { stock: number | null }): number | null {
+  const s = row.stock != null ? Number(row.stock) : null;
+  return s != null && s > 0 ? s : null;
+}
+
+type DbSpecsResult = {
+  specs?: Product['specs'];
+  productionTime?: string;
+  durabilityRating?: Product['durabilityRating'];
+  madeToOrder?: boolean;
+};
+
+function specsFromDb(row: { specifications: any }): DbSpecsResult | null {
+  if (!row.specifications || typeof row.specifications !== 'object') return null;
+  const s = row.specifications as Record<string, unknown>;
+  const getStr = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = s[k];
+      if (typeof v === 'string' && v.trim()) return v.trim();
+    }
+    return undefined;
+  };
+  const out: DbSpecsResult = {
+    specs: {
+      material: getStr('material') || 'PLA',
+      dimensions: getStr('dimensions') || 'Varies by design',
+      printTime: getStr('printTime', 'print_time') || 'Varies by size',
+      infill: getStr('infill') || '20%',
+      layerHeight: getStr('layerHeight', 'layer_height') || '0.2mm',
+      supportRequired: typeof s.supportRequired === 'boolean'
+        ? s.supportRequired
+        : typeof s.support_required === 'boolean' ? s.support_required : true,
+    },
+  };
+  const productionTime = getStr('productionTime', 'production_time');
+  if (productionTime) out.productionTime = productionTime;
+  const durability = getStr('durabilityRating', 'durability');
+  if (durability) out.durabilityRating = durability as Product['durabilityRating'];
+  const madeToOrder = s.madeToOrder ?? s.made_to_order;
+  if (typeof madeToOrder === 'boolean') out.madeToOrder = madeToOrder;
+  return out;
+}
+
+const DEFAULT_DB_SPECS: Product['specs'] = {
+  material: 'PLA',
+  dimensions: 'Varies by design',
+  printTime: 'Varies by size',
+  infill: '20%',
+  layerHeight: '0.2mm',
+  supportRequired: true,
+};
+
+function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean; images: any; specifications: any; stock: number | null }): Product {
   const { price, originalPrice } = resolveDbPrice(row);
   const category = mapCategory(row.category);
   const badge = row.is_new ? 'New' : row.is_bestseller ? 'Bestseller' : undefined;
   const images = dbImages(row);
+  const dbSpecs = specsFromDb(row);
+  const stock = dbStock(row);
   return {
     id: row.id,
     name: row.name,
@@ -79,24 +140,17 @@ function buildProductFromDb(row: { id: string; name: string; slug: string; descr
     category,
     image: images[0] || IMG(row.slug || row.name),
     ...(images.length ? { images } : {}),
-    stock: 10,
+    ...(stock != null ? { stock } : { stock: 10 }),
     inStock: true,
     rating: 4.5,
     reviews: 0,
-    madeToOrder: true,
-    productionTime: 'Ships within 3-5 days',
-    durabilityRating: 'moderate-use',
+    ...(dbSpecs?.madeToOrder != null ? { madeToOrder: dbSpecs.madeToOrder } : { madeToOrder: true }),
+    ...(dbSpecs?.productionTime != null ? { productionTime: dbSpecs.productionTime } : { productionTime: 'Ships within 3-5 days' }),
+    ...(dbSpecs?.durabilityRating != null ? { durabilityRating: dbSpecs.durabilityRating } : { durabilityRating: 'moderate-use' }),
     badge,
     collection: `${category} Collection`,
     isNew: row.is_new,
-    specs: {
-      material: 'PLA',
-      dimensions: 'Varies by design',
-      printTime: 'Varies by size',
-      infill: '20%',
-      layerHeight: '0.2mm',
-      supportRequired: true,
-    },
+    specs: dbSpecs?.specs || DEFAULT_DB_SPECS,
   };
 }
 
@@ -124,15 +178,23 @@ export async function getCatalogProducts(): Promise<Product[]> {
   for (const staticProduct of PRODUCTS) {
     const dbRow = dbByName.get(normalizeName(staticProduct.name));
     if (dbRow) {
+      if (isHiddenStatus(dbRow.status)) continue;
       matchedDbIds.add(dbRow.id);
       const { price, originalPrice } = resolveDbPrice(dbRow);
       const dbImgs = dbImages(dbRow);
+      const dbSpecs = specsFromDb(dbRow);
+      const stock = dbStock(dbRow);
       merged.push({
         ...staticProduct,
         id: dbRow.id,
         price,
         ...(originalPrice != null ? { originalPrice } : {}),
         ...(dbImgs.length ? { image: dbImgs[0], images: dbImgs } : {}),
+        ...(stock != null ? { stock } : {}),
+        ...(dbSpecs?.specs ? { specs: dbSpecs.specs } : {}),
+        ...(dbSpecs?.productionTime ? { productionTime: dbSpecs.productionTime } : {}),
+        ...(dbSpecs?.durabilityRating ? { durabilityRating: dbSpecs.durabilityRating } : {}),
+        ...(dbSpecs?.madeToOrder != null ? { madeToOrder: dbSpecs.madeToOrder } : {}),
         isNew: dbRow.is_new,
       });
       effectiveOverride.set(dbRow.id, overrideMap.get(staticProduct.id) || overrideMap.get(dbRow.id));
@@ -144,6 +206,7 @@ export async function getCatalogProducts(): Promise<Product[]> {
 
   for (const row of dbProducts) {
     if (matchedDbIds.has(row.id)) continue;
+    if (isHiddenStatus(row.status)) continue;
     merged.push(buildProductFromDb(row));
     effectiveOverride.set(row.id, overrideMap.get(row.id));
   }

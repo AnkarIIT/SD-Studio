@@ -244,6 +244,17 @@ model Product {
   description      String?
   category         String
   images           Json?
+  specifications   Json?
+  cost_price       Decimal?  @db.Decimal(10, 2)
+  low_stock_threshold Int    @default(0)
+  seo              Json?
+  sku              String?
+  status           String    @default("Active")
+  stock            Int       @default(0)
+  subcategory      String?
+  tags             Json?
+  variants         Json?
+  video_url        String?
   base_price       Decimal  @db.Decimal(10, 2)
   discounted_price Decimal? @db.Decimal(10, 2)
   is_on_sale       Boolean  @default(false)

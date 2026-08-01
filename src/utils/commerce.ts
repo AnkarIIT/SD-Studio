@@ -62,7 +62,11 @@ export const getDiscount = (
   couponCode?: string,
   coupons: CouponMap = COUPONS
 ) => {
-  const coupon = couponCode ? coupons[couponCode.trim().toUpperCase()] : undefined;
+  if (!couponCode) return 0;
+  const code = couponCode.trim().toUpperCase();
+  // Merge with static defaults to ensure fallback works
+  const allCoupons = { ...COUPONS, ...coupons };
+  const coupon = allCoupons[code];
   return Math.round(couponDiscount(coupon, subtotal) * 100) / 100;
 };
 
@@ -73,16 +77,14 @@ export const getOrderTotals = (
     coupons?: CouponMap;
   }
 ) => {
-  const coupons = options?.coupons ?? COUPONS;
+  const coupons = options?.coupons || COUPONS;
   const subtotal = getCartSubtotal(items);
   const discount = getDiscount(subtotal, couponCode, coupons);
   const discountedAmount = Math.max(subtotal - discount, 0);
 
   const tax = 0;
-
   const shipping = subtotal > 0 ? STANDARD_SHIPPING : 0;
-
-  const total = discountedAmount + tax + shipping;
+  const total = Math.round((discountedAmount + tax + shipping) * 100) / 100;
 
   return { subtotal, discount, tax, shipping, total };
 };
@@ -91,4 +93,8 @@ export const isValidCoupon = (
   couponCode: string,
   coupons: CouponMap = COUPONS,
   subtotal = 0
-) => couponIssue(coupons[couponCode.trim().toUpperCase()], subtotal) === null;
+) => {
+  const code = couponCode.trim().toUpperCase();
+  const allCoupons = { ...COUPONS, ...coupons };
+  return couponIssue(allCoupons[code], subtotal) === null;
+};

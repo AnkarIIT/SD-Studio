@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowRight, X, ShoppingBag, MapPin, CreditCard, CheckCircle2, Loader2, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Address, CartItem, Order } from '../types';
-import { getOrderTotals, couponIssue, couponDiscount } from '../utils/commerce';
+import { getOrderTotals, couponIssue, couponDiscount, COUPONS, isValidCoupon } from '../utils/commerce';
 import { addressSchema, validateForm } from '../utils/validation';
 import { useCartStore, useOrderStore, useUserStore } from '../utils/store';
 import { useSiteSettings } from '../utils/siteSettings';
@@ -122,8 +122,9 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
         throw new Error(cfData.error || 'Payment gateway unavailable');
       }
 
-      const Cashfree = await loadCashfreeSdk('production');
-      cashfreeRef.current = Cashfree({ mode: 'production' });
+      const cfMode = cfData.cashfreeMode === 'sandbox' ? 'sandbox' : 'production';
+      const Cashfree = await loadCashfreeSdk(cfMode);
+      cashfreeRef.current = Cashfree({ mode: cfMode });
       cashfreeRef.current.checkout({ paymentSessionId: cfData.paymentSessionId, redirectTarget: "_modal" })
         .then(async (result: any) => {
           if (result?.error) { toast.error(result.error.message); setIsProcessing(false); return; }
@@ -219,9 +220,13 @@ export default function Checkout({ isOpen, items, onClose, onComplete }: { isOpe
                   <button type="button" onClick={() => {
                     const code = couponCode.trim().toUpperCase();
                     if (!code) { toast.error('Enter a coupon code'); return; }
-                    const coupon = (siteSettings.coupons || {})[code];
+
+                    // Merged lookup logic consistent with commerce.ts/getOrderTotals
+                    const allCoupons = { ...COUPONS, ...(siteSettings.coupons || {}) };
+                    const coupon = allCoupons[code];
                     const issue = couponIssue(coupon, totals.subtotal);
                     if (issue) { toast.error(issue); return; }
+
                     const disc = couponDiscount(coupon, totals.subtotal);
                     setAppliedCoupon(code);
                     setCouponCode('');

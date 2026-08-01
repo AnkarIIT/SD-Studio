@@ -124,12 +124,20 @@ const DEFAULT_DB_SPECS: Product['specs'] = {
   supportRequired: true,
 };
 
+function dbSpecifications(row: { specifications: any }): Product['specifications'] | undefined {
+  if (!row.specifications || typeof row.specifications !== 'object' || Array.isArray(row.specifications)) {
+    return undefined;
+  }
+  return row.specifications as Product['specifications'];
+}
+
 function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean; images: any; specifications: any; stock: number | null }): Product {
   const { price, originalPrice } = resolveDbPrice(row);
   const category = mapCategory(row.category);
   const badge = row.is_new ? 'New' : row.is_bestseller ? 'Bestseller' : undefined;
   const images = dbImages(row);
   const dbSpecs = specsFromDb(row);
+  const specifications = dbSpecifications(row);
   const stock = dbStock(row);
   return {
     id: row.id,
@@ -140,6 +148,7 @@ function buildProductFromDb(row: { id: string; name: string; slug: string; descr
     category,
     image: images[0] || IMG(row.slug || row.name),
     ...(images.length ? { images } : {}),
+    ...(specifications ? { specifications } : {}),
     ...(stock != null ? { stock } : { stock: 10 }),
     inStock: true,
     rating: 4.5,
@@ -183,6 +192,7 @@ export async function getCatalogProducts(): Promise<Product[]> {
       const { price, originalPrice } = resolveDbPrice(dbRow);
       const dbImgs = dbImages(dbRow);
       const dbSpecs = specsFromDb(dbRow);
+      const specifications = dbSpecifications(dbRow);
       const stock = dbStock(dbRow);
       merged.push({
         ...staticProduct,
@@ -190,6 +200,7 @@ export async function getCatalogProducts(): Promise<Product[]> {
         price,
         ...(originalPrice != null ? { originalPrice } : {}),
         ...(dbImgs.length ? { image: dbImgs[0], images: dbImgs } : {}),
+        ...(specifications ? { specifications } : {}),
         ...(stock != null ? { stock } : {}),
         ...(dbSpecs?.specs ? { specs: dbSpecs.specs } : {}),
         ...(dbSpecs?.productionTime ? { productionTime: dbSpecs.productionTime } : {}),

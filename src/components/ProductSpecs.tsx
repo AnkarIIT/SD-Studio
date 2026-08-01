@@ -1,12 +1,12 @@
 import { motion } from 'motion/react';
-import { Layers, Zap, Clock, Wrench, ShieldCheck } from 'lucide-react';
-import { Product } from '../types';
+import { Layers, Zap, Wrench, ShieldCheck } from 'lucide-react';
+import { Product, ProductSpecifications } from '../types';
 
 interface ProductSpecsProps {
   product: Product;
 }
 
-const DURABILITY_INFO = {
+const LEGACY_DURABILITY_INFO: Record<string, { label: string; description: string; color: string }> = {
   'display-only': {
     label: 'Display Only',
     description: 'Decorative items - not for functional use',
@@ -29,12 +29,68 @@ const DURABILITY_INFO = {
   }
 };
 
-export default function ProductSpecs({ product }: ProductSpecsProps) {
-  if (!product.specs) return null;
+const DEFAULT_MTO_NOTE = 'Each item is custom-printed for you. Ships within 3-5 days';
+const DEFAULT_NOTE =
+  '3D printed items may display slight layer lines and color variations, which are inherent to the manufacturing process and not defects. Each print is a unique creation with its own character.';
+const DEFAULT_SPEC_ROWS: { label: string; value: string }[] = [
+  { label: 'Material', value: 'PLA' },
+  { label: 'Dimensions', value: 'Varies by design' },
+  { label: 'Print Time', value: 'Varies by size' },
+  { label: 'Infill', value: '20%' },
+  { label: 'Layer Height', value: '0.2mm' },
+  { label: 'Support Material', value: 'Yes' },
+];
 
-  const specs = product.specs;
-  const durability = product.durabilityRating ? DURABILITY_INFO[product.durabilityRating] : null;
-  const madeToOrder = product.madeToOrder !== false;
+function collectSpecRows(product: Product): { label: string; value: string }[] {
+  const spec = product.specifications;
+  if (spec && Array.isArray(spec.specs) && spec.specs.length) {
+    const rows = spec.specs.filter(
+      (r): r is { label: string; value: string } =>
+        !!r && typeof r.label === 'string' && typeof r.value === 'string' && r.value.trim().length > 0
+    );
+    if (rows.length) return rows;
+  }
+
+  const legacy = product.specs;
+  if (legacy) {
+    const rows: { label: string; value: string }[] = [
+      { label: 'Material', value: legacy.material },
+      { label: 'Dimensions', value: legacy.dimensions },
+      { label: 'Print Time', value: legacy.printTime },
+      ...(legacy.infill ? [{ label: 'Infill', value: legacy.infill }] : []),
+      ...(legacy.layerHeight ? [{ label: 'Layer Height', value: legacy.layerHeight }] : []),
+      ...(legacy.supportRequired !== undefined
+        ? [{ label: 'Support Material', value: legacy.supportRequired ? 'Yes' : 'No' }]
+        : []),
+    ].filter((r) => !!r.value);
+    if (rows.length) return rows;
+  }
+
+  return DEFAULT_SPEC_ROWS;
+}
+
+export default function ProductSpecs({ product }: ProductSpecsProps) {
+  const spec = product.specifications as ProductSpecifications | undefined;
+
+  const madeToOrder = spec?.madeToOrder ?? product.madeToOrder ?? true;
+  const madeToOrderNote =
+    spec?.madeToOrderNote || `Each item is custom-printed for you. ${product.productionTime || 'Ships within 3-5 days'}`;
+
+  const specRows = collectSpecRows(product);
+
+  let durability: { label: string; description: string; color: string } | null = null;
+  if (spec?.usageLabel || spec?.usageDescription) {
+    durability = {
+      label: spec.usageLabel || 'Durability',
+      description: spec.usageDescription || '',
+      color: 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800',
+    };
+  } else if (product.durabilityRating) {
+    const info = LEGACY_DURABILITY_INFO[product.durabilityRating];
+    if (info) durability = info;
+  }
+
+  const note = spec?.note || DEFAULT_NOTE;
 
   return (
     <div className="space-y-6">
@@ -53,76 +109,39 @@ export default function ProductSpecs({ product }: ProductSpecsProps) {
               ✓ Made to Order
             </p>
             <p className="text-xs text-zinc-600 dark:text-zinc-400 mt-1">
-              Each item is custom-printed for you. {product.productionTime || 'Ships within 3-5 days'}
+              {madeToOrderNote}
             </p>
           </div>
         </motion.div>
       )}
 
       {/* Technical Specifications */}
-      <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6 space-y-5">
-        <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          <Wrench className="w-4 h-4" />
-          Technical Specifications
-        </h3>
+      {specRows.length > 0 && (
+        <div className="bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800 p-6 space-y-5">
+          <h3 className="font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+            <Wrench className="w-4 h-4" />
+            Technical Specifications
+          </h3>
 
-        <div className="grid grid-cols-2 gap-4">
-          {/* Material */}
-          <div>
-            <p className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1">Material</p>
-            <p className="font-semibold text-zinc-900 dark:text-zinc-100">{specs.material}</p>
+          <div className="grid grid-cols-2 gap-4">
+            {specRows.map((row, idx) => (
+              <div key={`${row.label}-${idx}`}>
+                <p className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1">{row.label}</p>
+                <p className="font-semibold text-zinc-900 dark:text-zinc-100">{row.value}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Dimensions */}
-          <div>
-            <p className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1">Dimensions</p>
-            <p className="font-semibold text-zinc-900 dark:text-zinc-100">{specs.dimensions}</p>
-          </div>
-
-          {/* Print Time */}
-          <div>
-            <p className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1 flex items-center gap-1">
-              <Clock className="w-3 h-3" /> Print Time
+          {/* Print Note / Disclaimer */}
+          <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+            <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+              <strong>Note:</strong> {note}
             </p>
-            <p className="font-semibold text-zinc-900 dark:text-zinc-100">{specs.printTime}</p>
           </div>
-
-          {/* Infill */}
-          {specs.infill && (
-            <div>
-              <p className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1">Infill</p>
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">{specs.infill}</p>
-            </div>
-          )}
-
-          {/* Layer Height */}
-          {specs.layerHeight && (
-            <div>
-              <p className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1">Layer Height</p>
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">{specs.layerHeight}</p>
-            </div>
-          )}
-
-          {/* Support Required */}
-          {specs.supportRequired !== undefined && (
-            <div>
-              <p className="text-xs font-mono uppercase text-zinc-500 dark:text-zinc-400 mb-1">Support Material</p>
-              <p className="font-semibold text-zinc-900 dark:text-zinc-100">
-                {specs.supportRequired ? 'Yes' : 'No'}
-              </p>
-            </div>
-          )}
         </div>
+      )}
 
-        {/* Quality Notice */}
-        <div className="pt-4 border-t border-zinc-200 dark:border-zinc-700">
-          <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            <strong>Note:</strong> 3D printed items may display slight layer lines and color variations, which are inherent to the manufacturing process and not defects. Each print is a unique creation with its own character.
-          </p>
-        </div>
-      </div>
-
-      {/* Durability Rating */}
+      {/* Durability */}
       {durability && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -135,9 +154,11 @@ export default function ProductSpecs({ product }: ProductSpecsProps) {
               <p className="font-semibold text-sm text-zinc-900 dark:text-zinc-100">
                 {durability.label}
               </p>
-              <p className="text-xs text-zinc-700 dark:text-zinc-300 mt-1">
-                {durability.description}
-              </p>
+              {durability.description && (
+                <p className="text-xs text-zinc-700 dark:text-zinc-300 mt-1">
+                  {durability.description}
+                </p>
+              )}
             </div>
           </div>
         </motion.div>
@@ -153,7 +174,7 @@ export default function ProductSpecs({ product }: ProductSpecsProps) {
           <div className="grid grid-cols-3 gap-3">
             {product.materialSwatches.map((swatch, idx) => (
               <div key={idx} className="text-center">
-                <div 
+                <div
                   className="w-full h-20 rounded-lg border-2 border-zinc-200 dark:border-zinc-700 mb-2 bg-gradient-to-br"
                   style={{
                     backgroundImage: `url(${swatch})`,

@@ -1,3 +1,12 @@
+export interface ProductSpecifications {
+  madeToOrder?: boolean;
+  madeToOrderNote?: string;
+  specs?: { label: string; value: string }[];
+  usageLabel?: string;
+  usageDescription?: string;
+  note?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -7,6 +16,7 @@ export interface Product {
   category: 'Home Decor' | 'Art' | 'Tech' | 'Toys' | 'Accessories' | 'Costumes' | 'Lighting';
   image: string;
   images?: string[];
+  specifications?: ProductSpecifications;
   rating?: number;
   reviews?: number;
   stock?: number;

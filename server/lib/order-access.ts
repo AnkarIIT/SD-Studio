@@ -3,11 +3,15 @@ import type { Request, Response, NextFunction } from 'express';
 
 const TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
+let cachedSecret: string | null = null;
+
 function getSecret(): string {
   const secret = process.env.ORDER_ACCESS_SECRET?.trim();
   if (secret) return secret;
+  if (cachedSecret) return cachedSecret;
   console.error('❌ ORDER_ACCESS_SECRET not set. Tokens will invalidate on restart.');
-  return crypto.randomBytes(32).toString('hex');
+  cachedSecret = crypto.randomBytes(32).toString('hex');
+  return cachedSecret;
 }
 
 type TokenPayload = { email: string; exp: number };

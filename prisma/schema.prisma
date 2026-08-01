@@ -243,6 +243,7 @@ model Product {
   slug             String   @unique
   description      String?
   category         String
+  images           Json?
   base_price       Decimal  @db.Decimal(10, 2)
   discounted_price Decimal? @db.Decimal(10, 2)
   is_on_sale       Boolean  @default(false)

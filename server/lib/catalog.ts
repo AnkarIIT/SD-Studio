@@ -53,17 +53,23 @@ function normalizeName(name: string): string {
 function resolveDbPrice(row: { base_price: any; discounted_price: any }) {
   const base = Number(row.base_price);
   const disc = row.discounted_price != null ? Number(row.discounted_price) : null;
-  if (disc == null) return { price: base, originalPrice: null as number | null };
+  if (disc == null || disc <= 0) return { price: base, originalPrice: null as number | null };
   return {
     price: Math.min(base, disc),
     originalPrice: Math.max(base, disc),
   };
 }
 
-function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean }): Product {
+function dbImages(row: { images: any }): string[] {
+  if (!Array.isArray(row.images)) return [];
+  return row.images.filter((i): i is string => typeof i === 'string' && i.length > 0);
+}
+
+function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean; images: any }): Product {
   const { price, originalPrice } = resolveDbPrice(row);
   const category = mapCategory(row.category);
   const badge = row.is_new ? 'New' : row.is_bestseller ? 'Bestseller' : undefined;
+  const images = dbImages(row);
   return {
     id: row.id,
     name: row.name,
@@ -71,7 +77,8 @@ function buildProductFromDb(row: { id: string; name: string; slug: string; descr
     price,
     ...(originalPrice != null ? { originalPrice } : {}),
     category,
-    image: IMG(row.slug || row.name),
+    image: images[0] || IMG(row.slug || row.name),
+    ...(images.length ? { images } : {}),
     stock: 10,
     inStock: true,
     rating: 4.5,
@@ -119,11 +126,13 @@ export async function getCatalogProducts(): Promise<Product[]> {
     if (dbRow) {
       matchedDbIds.add(dbRow.id);
       const { price, originalPrice } = resolveDbPrice(dbRow);
+      const dbImgs = dbImages(dbRow);
       merged.push({
         ...staticProduct,
         id: dbRow.id,
         price,
         ...(originalPrice != null ? { originalPrice } : {}),
+        ...(dbImgs.length ? { image: dbImgs[0], images: dbImgs } : {}),
         isNew: dbRow.is_new,
       });
       effectiveOverride.set(dbRow.id, overrideMap.get(staticProduct.id) || overrideMap.get(dbRow.id));

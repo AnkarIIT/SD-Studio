@@ -4,10 +4,12 @@ import ProductPage from './pages/ProductPage';
 import ContentPage from './pages/ContentPage';
 import PaymentSuccess from './pages/PaymentSuccess';
 import PaymentFailed from './pages/PaymentFailed';
+import ScrollToTop from './components/ScrollToTop';
 
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<StorefrontPage />} />
         <Route path="/product/:id" element={<ProductPage />} />

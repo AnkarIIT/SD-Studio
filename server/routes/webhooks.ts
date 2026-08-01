@@ -79,7 +79,7 @@ router.post('/webhooks/cashfree', async (req: Request, res: Response) => {
   try {
     const signature = String(req.headers['x-webhook-signature'] ?? '');
     const timestamp = String(req.headers['x-webhook-timestamp'] ?? '');
-    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const rawBody = (req as any).rawBody || (typeof req.body === 'string' ? req.body : JSON.stringify(req.body));
 
     if (!verifyCashfreeWebhook(rawBody, signature, timestamp)) {
       return res.status(400).json({ success: false, error: 'Invalid webhook signature' });

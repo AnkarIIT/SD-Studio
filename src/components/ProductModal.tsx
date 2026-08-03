@@ -7,6 +7,7 @@ import { useWishlistStore } from '../utils/store';
 import ProductSpecs from './ProductSpecs';
 import ModelViewer from './ModelViewer';
 import ProductionTimeline from './ProductionTimeline';
+import ProductGallery from './ProductGallery';
 import toast from 'react-hot-toast';
 
 interface ProductModalProps {
@@ -77,34 +78,17 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
 
           {/* Left: Image Section */}
           <div className="w-full lg:w-1/2 bg-zinc-100 dark:bg-zinc-800 relative overflow-hidden flex flex-col">
-            {/* Main Image */}
-            <div className="flex-1 flex items-center justify-center overflow-hidden group min-h-[400px]">
-              <img 
-                src={product.image} 
-                alt={product.name} 
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
-              />
-              {discount > 0 && (
-                <div className="absolute top-4 right-4 bg-[#111] text-white px-3 py-1.5 text-xs font-semibold uppercase tracking-wider">
-                  -{discount}% OFF
-                </div>
-              )}
-              
-              {/* Engineering Overlay */}
-              <div className="absolute top-8 left-8 flex flex-col gap-1">
-                <span className="text-[10px] font-mono text-white bg-black px-2 py-0.5">MESH_GRID_ACTIVE</span>
-                <span className="text-[10px] font-mono text-white bg-black px-2 py-0.5">SCALE_1:1</span>
-              </div>
-            </div>
+            <ProductGallery
+              product={product}
+              discount={discount}
+              mediaClassName="flex-1 min-h-[400px]"
+              thumbnailsClassName="p-4 bg-gradient-to-t from-zinc-900/20"
+            />
 
-            {/* Additional Images Carousel */}
-            <div className="p-4 bg-gradient-to-t from-zinc-900/20 flex gap-2">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="w-16 h-16 border border-white/40 backdrop-blur-sm bg-white/10 hover:bg-white/30 cursor-pointer transition-all overflow-hidden rounded">
-                  <img src={product.image} className="w-full h-full object-cover opacity-60 hover:opacity-100" />
-                </div>
-              ))}
+            {/* Engineering Overlay */}
+            <div className="absolute top-8 left-8 z-10 flex flex-col gap-1 pointer-events-none">
+              <span className="text-[10px] font-mono text-white bg-black px-2 py-0.5">MESH_GRID_ACTIVE</span>
+              <span className="text-[10px] font-mono text-white bg-black px-2 py-0.5">SCALE_1:1</span>
             </div>
           </div>
 

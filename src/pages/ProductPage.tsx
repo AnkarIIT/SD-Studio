@@ -7,6 +7,7 @@ import Footer from '../components/Footer';
 import ProductSpecs from '../components/ProductSpecs';
 import ModelViewer from '../components/ModelViewer';
 import ProductionTimeline from '../components/ProductionTimeline';
+import ProductGallery from '../components/ProductGallery';
 
 import { useProducts } from '../hooks/useProducts';
 import { useCartStore, useWishlistStore } from '../utils/store';
@@ -94,18 +95,8 @@ export default function ProductPage() {
 
           {product && (
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-14">
-              <div className="relative aspect-square bg-[#f5f5f5] dark:bg-zinc-800 overflow-hidden">
-                <img
-                  src={product.image}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-                {discount > 0 && (
-                  <span className="absolute top-3 right-3 text-[10px] font-semibold uppercase tracking-wider bg-[#111] text-white px-2 py-1">
-                    -{discount}%
-                  </span>
-                )}
+              <div>
+                <ProductGallery product={product} discount={discount} />
               </div>
 
               <div className="flex flex-col">

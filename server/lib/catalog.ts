@@ -65,6 +65,11 @@ function dbImages(row: { images: any }): string[] {
   return row.images.filter((i): i is string => typeof i === 'string' && i.length > 0);
 }
 
+function dbVideoUrl(row: { video_url: string | null | undefined }): string | undefined {
+  if (typeof row.video_url !== 'string' || !row.video_url.trim()) return undefined;
+  return row.video_url.trim();
+}
+
 const HIDDEN_STATUSES = new Set(['inactive', 'draft', 'archived', 'hidden', 'unlisted', 'deleted', 'disabled', 'out of stock']);
 
 function isHiddenStatus(status: string | null | undefined): boolean {
@@ -131,11 +136,12 @@ function dbSpecifications(row: { specifications: any }): Product['specifications
   return row.specifications as Product['specifications'];
 }
 
-function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean; images: any; specifications: any; stock: number | null }): Product {
+function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean; images: any; video_url: string | null; specifications: any; stock: number | null }): Product {
   const { price, originalPrice } = resolveDbPrice(row);
   const category = mapCategory(row.category);
   const badge = row.is_new ? 'New' : row.is_bestseller ? 'Bestseller' : undefined;
   const images = dbImages(row);
+  const videoUrl = dbVideoUrl(row);
   const dbSpecs = specsFromDb(row);
   const specifications = dbSpecifications(row);
   const stock = dbStock(row);
@@ -148,6 +154,7 @@ function buildProductFromDb(row: { id: string; name: string; slug: string; descr
     category,
     image: images[0] || IMG(row.slug || row.name),
     ...(images.length ? { images } : {}),
+    ...(videoUrl ? { videoUrl } : {}),
     ...(specifications ? { specifications } : {}),
     ...(stock != null ? { stock } : { stock: 10 }),
     inStock: true,
@@ -191,6 +198,7 @@ export async function getCatalogProducts(): Promise<Product[]> {
       matchedDbIds.add(dbRow.id);
       const { price, originalPrice } = resolveDbPrice(dbRow);
       const dbImgs = dbImages(dbRow);
+      const videoUrl = dbVideoUrl(dbRow);
       const dbSpecs = specsFromDb(dbRow);
       const specifications = dbSpecifications(dbRow);
       const stock = dbStock(dbRow);
@@ -200,6 +208,7 @@ export async function getCatalogProducts(): Promise<Product[]> {
         price,
         ...(originalPrice != null ? { originalPrice } : {}),
         ...(dbImgs.length ? { image: dbImgs[0], images: dbImgs } : {}),
+        ...(videoUrl ? { videoUrl } : {}),
         ...(specifications ? { specifications } : {}),
         ...(stock != null ? { stock } : {}),
         ...(dbSpecs?.specs ? { specs: dbSpecs.specs } : {}),

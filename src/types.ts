@@ -16,6 +16,7 @@ export interface Product {
   category: 'Home Decor' | 'Art' | 'Tech' | 'Toys' | 'Accessories' | 'Costumes' | 'Lighting';
   image: string;
   images?: string[];
+  videoUrl?: string;
   specifications?: ProductSpecifications;
   rating?: number;
   reviews?: number;

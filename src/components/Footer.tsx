@@ -145,7 +145,6 @@ export default function Footer({ onTrackOrder }: FooterProps) {
 
         <div className="mt-14 pt-8 border-t border-[#e8e8e8] dark:border-zinc-800 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#6b6b6b] dark:text-zinc-500">
           <span>© 2026 {BRAND_NAME}. All rights reserved.</span>
-          <span>Prices in ₹ · GST included</span>
         </div>
       </div>
     </footer>

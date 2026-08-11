@@ -39,9 +39,6 @@ function mapCategory(category: string): Product['category'] {
   return CATEGORY_MAP[category.trim().toUpperCase()] || 'Home Decor';
 }
 
-const IMG = (seed: string, w = 800) =>
-  `https://picsum.photos/seed/${encodeURIComponent(seed)}/${w}/${w}`;
-
 function normalizeName(name: string): string {
   return name
     .toLowerCase()
@@ -60,9 +57,9 @@ function resolveDbPrice(row: { base_price: any; discounted_price: any }) {
   };
 }
 
-function dbImages(row: { images: any }): string[] {
-  if (!Array.isArray(row.images)) return [];
-  return row.images.filter((i): i is string => typeof i === 'string' && i.length > 0);
+function imageProxyUrl(id: string, origin?: string): string {
+  const base = origin ? origin.replace(/\/+$/, '') : '';
+  return `${base}/api/products/${id}/image`;
 }
 
 function dbVideoUrl(row: { video_url: string | null | undefined }): string | undefined {
@@ -136,15 +133,15 @@ function dbSpecifications(row: { specifications: any }): Product['specifications
   return row.specifications as Product['specifications'];
 }
 
-function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean; images: any; video_url: string | null; specifications: any; stock: number | null }): Product {
+function buildProductFromDb(row: { id: string; name: string; slug: string; description: string | null; category: string; base_price: any; discounted_price: any; is_on_sale: boolean; is_new: boolean; is_bestseller: boolean; video_url: string | null; specifications: any; stock: number | null }, origin?: string): Product {
   const { price, originalPrice } = resolveDbPrice(row);
   const category = mapCategory(row.category);
   const badge = row.is_new ? 'New' : row.is_bestseller ? 'Bestseller' : undefined;
-  const images = dbImages(row);
   const videoUrl = dbVideoUrl(row);
   const dbSpecs = specsFromDb(row);
   const specifications = dbSpecifications(row);
   const stock = dbStock(row);
+  const image = imageProxyUrl(row.id, origin);
   return {
     id: row.id,
     name: row.name,
@@ -152,8 +149,8 @@ function buildProductFromDb(row: { id: string; name: string; slug: string; descr
     price,
     ...(originalPrice != null ? { originalPrice } : {}),
     category,
-    image: images[0] || IMG(row.slug || row.name),
-    ...(images.length ? { images } : {}),
+    image,
+    images: [image],
     ...(videoUrl ? { videoUrl } : {}),
     ...(specifications ? { specifications } : {}),
     ...(stock != null ? { stock } : { stock: 10 }),
@@ -170,10 +167,12 @@ function buildProductFromDb(row: { id: string; name: string; slug: string; descr
   };
 }
 
-export async function getCatalogProducts(): Promise<Product[]> {
+export async function getCatalogProducts(origin?: string): Promise<Product[]> {
   const [overrides, dbProducts] = await Promise.all([
     prisma.productOverride.findMany(),
-    prisma.product.findMany().catch(() => []),
+    // images holds base64 blobs (MBs per product). Omit it here so the catalog
+    // read stays fast; images are served via /api/products/:id/image instead.
+    prisma.product.findMany({ omit: { images: true } }).catch(() => []),
   ]);
   const overrideMap = new Map(overrides.map((o) => [o.productId, o]));
 
@@ -197,17 +196,18 @@ export async function getCatalogProducts(): Promise<Product[]> {
       if (isHiddenStatus(dbRow.status)) continue;
       matchedDbIds.add(dbRow.id);
       const { price, originalPrice } = resolveDbPrice(dbRow);
-      const dbImgs = dbImages(dbRow);
       const videoUrl = dbVideoUrl(dbRow);
       const dbSpecs = specsFromDb(dbRow);
       const specifications = dbSpecifications(dbRow);
       const stock = dbStock(dbRow);
+      const image = imageProxyUrl(dbRow.id, origin);
       merged.push({
         ...staticProduct,
         id: dbRow.id,
         price,
         ...(originalPrice != null ? { originalPrice } : {}),
-        ...(dbImgs.length ? { image: dbImgs[0], images: dbImgs } : {}),
+        image,
+        images: [image],
         ...(videoUrl ? { videoUrl } : {}),
         ...(specifications ? { specifications } : {}),
         ...(stock != null ? { stock } : {}),
@@ -227,7 +227,7 @@ export async function getCatalogProducts(): Promise<Product[]> {
   for (const row of dbProducts) {
     if (matchedDbIds.has(row.id)) continue;
     if (isHiddenStatus(row.status)) continue;
-    merged.push(buildProductFromDb(row));
+    merged.push(buildProductFromDb(row, origin));
     effectiveOverride.set(row.id, overrideMap.get(row.id));
   }
 

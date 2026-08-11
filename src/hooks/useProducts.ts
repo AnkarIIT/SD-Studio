@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { Product } from '../types';
-import { PRODUCTS } from '../constants';
 import { fetchProductsFromServer } from '../utils/catalogApi';
 
 export function useProducts() {
-  const [products, setProducts] = useState<Product[]>(PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<'local' | 'server'>('local');
 
@@ -19,7 +18,7 @@ export function useProducts() {
 
   const refresh = () => {
     setLoading(true);
-    return fetchProductsFromServer()
+    return fetchProductsFromServer(true)
       .then(({ products: list, source: src }) => {
         setProducts(list);
         setSource(src);

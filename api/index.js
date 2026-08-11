@@ -137,8 +137,21 @@ app.post('/api/payments/cashfree/verify', paymentLimiter, async (req, res) => {
   }
 });
 
-app.get('/api/ping', (req, res) => {
-  res.json({ success: true, message: 'pong', timestamp: new Date().toISOString() });
+app.get('/api/ping', async (req, res) => {
+  let db = 'not-configured';
+  if (process.env.DATABASE_URL?.trim()) {
+    try {
+      await Promise.race([
+        prisma.$queryRaw`SELECT 1`,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('db ping timeout')), 3000)),
+      ]);
+      db = 'ok';
+    } catch {
+      db = 'error';
+    }
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json({ success: true, message: 'pong', timestamp: new Date().toISOString(), db });
 });
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

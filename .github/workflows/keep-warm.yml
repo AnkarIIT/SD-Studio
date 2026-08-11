@@ -1,0 +1,16 @@
+name: Keep DB & API warm
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping /api/ping
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call API ping (keeps Neon + Vercel function warm)
+        run: |
+          curl -fsS --max-time 30 https://3dbysd.in/api/ping || \
+          curl -fsS --max-time 30 https://sd-studio-two.vercel.app/api/ping || true
